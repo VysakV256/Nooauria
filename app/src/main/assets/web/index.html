@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Nooauria Engine</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background-color: #05050A; font-family: sans-serif; }
+    #canvas { width: 100%; height: 100%; display: block; }
+    #overlay {
+      position: absolute; top: 12px; left: 12px;
+      color: rgba(255,255,255,0.7); font-size: 11px;
+      letter-spacing: 1px; text-transform: uppercase;
+      pointer-events: none; text-shadow: 0 0 8px rgba(0,255,255,0.5);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="overlay">NOOAURIA ENGINE: READY</div>
+
+  <script>
+    // --- AUDIO CONTEXT SETUP ---
+    let audioCtx = null;
+    let masterGain = null;
+    let filterNode = null;
+    let eqLowNode = null;
+    let eqMidNode = null;
+    let eqHighNode = null;
+    let delayNode = null;
+    let delayFeedback = null;
+    let analyserNode = null;
+
+    // --- COGNITIVE FREQUENCY NODES ---
+    let binauralLeftOsc = null;
+    let binauralRightOsc = null;
+    let binauralLeftPanner = null;
+    let binauralRightPanner = null;
+    let binauralGain = null;
+
+    let isochronicOsc = null;
+    let isochronicGain = null;
+    let isochronicLfo = null;
+
+    let solfeggioOsc = null;
+    let solfeggioGain = null;
+
+    let brownNoiseNode = null;
+    let brownNoiseGain = null;
+
+    function setupBrownNoise() {
+      if (!audioCtx) return;
+      const bufferSize = audioCtx.sampleRate * 2;
+      const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const data = buffer.getChannelData(0);
+      let lastOut = 0.0;
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        data[i] = (lastOut + (0.02 * white)) / 1.02; // Brown noise filter
+        lastOut = data[i];
+        data[i] *= 3.5;
+      }
+      brownNoiseNode = audioCtx.createBufferSource();
+      brownNoiseNode.buffer = buffer;
+      brownNoiseNode.loop = true;
+
+      brownNoiseGain = audioCtx.createGain();
+      brownNoiseGain.gain.value = state.brownNoiseEnabled ? state.brownNoiseVolume * 0.15 : 0.0;
+
+      brownNoiseNode.connect(brownNoiseGain);
+      brownNoiseGain.connect(analyserNode);
+      brownNoiseNode.start();
+    }
+
+    // --- ENGINE STATE ---
+    let state = {
+      isPlaying: false,
+      bpm: 128,
+      genre: 'MELODIC_TECHNO',
+      activeSection: 'DROP',
+      filterCutoff: 0.8, // 0.0 to 1.0
+      eqLow: 0, eqMid: 0, eqHigh: 0,
+      reverb: 0.2, delay: 0.15,
+      // Cognitive State
+      binauralEnabled: true,
+      binauralCarrierHz: 216.0,
+      binauralBeatHz: 10.0, // Alpha
+      binauralVol: 0.4,
+      isochronicEnabled: false,
+      isochronicHz: 10.0,
+      isochronicVol: 0.3,
+      solfeggioEnabled: true,
+      solfeggioHz: 528,
+      solfeggioVol: 0.35,
+      // Visualizer State
+      geometry: 'COSMIC_TUNNEL',
+      primaryColor: '#00FF9D',
+      secondaryColor: '#00F5D4',
+      accentColor: '#FFD700',
+      audioSensitivity: 1.0,
+      speed: 1.0,
+      particleDensity: 300,
+      bloomIntensity: 0.8
+    };
+
+    let stepIndex = 0;
+    let sequencerTimer = null;
+
+    let limiterNode = null;
+    let delayFilter = null;
+
+    function initAudio() {
+      if (audioCtx) {
+        if (audioCtx.state === 'suspended' && state.isPlaying) audioCtx.resume();
+        return;
+      }
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+
+      limiterNode = audioCtx.createDynamicsCompressor();
+      limiterNode.threshold.value = -3.0;
+      limiterNode.knee.value = 0.0;
+      limiterNode.ratio.value = 20.0;
+      limiterNode.attack.value = 0.005;
+      limiterNode.release.value = 0.05;
+
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = 0.4;
+
+      filterNode = audioCtx.createBiquadFilter();
+      filterNode.type = 'lowpass';
+      filterNode.frequency.value = 8000;
+      filterNode.Q.value = 2;
+
+      eqLowNode = audioCtx.createBiquadFilter();
+      eqLowNode.type = 'lowshelf';
+      eqLowNode.frequency.value = 250;
+
+      eqMidNode = audioCtx.createBiquadFilter();
+      eqMidNode.type = 'peaking';
+      eqMidNode.frequency.value = 1500;
+      eqMidNode.Q.value = 1;
+
+      eqHighNode = audioCtx.createBiquadFilter();
+      eqHighNode.type = 'highshelf';
+      eqHighNode.frequency.value = 4000;
+
+      delayNode = audioCtx.createDelay();
+      delayNode.delayTime.value = 0.25;
+      delayFeedback = audioCtx.createGain();
+      delayFeedback.gain.value = 0.15;
+
+      delayFilter = audioCtx.createBiquadFilter();
+      delayFilter.type = 'lowpass';
+      delayFilter.frequency.value = 2500;
+
+      delayNode.connect(delayFilter);
+      delayFilter.connect(delayFeedback);
+      delayFeedback.connect(delayNode);
+
+      analyserNode = audioCtx.createAnalyser();
+      analyserNode.fftSize = 128;
+
+      // Routing chain with Limiter protection
+      masterGain.connect(filterNode);
+      filterNode.connect(eqLowNode);
+      eqLowNode.connect(eqMidNode);
+      eqMidNode.connect(eqHighNode);
+      eqHighNode.connect(analyserNode);
+      analyserNode.connect(limiterNode);
+      limiterNode.connect(audioCtx.destination);
+
+      eqHighNode.connect(delayNode);
+      delayNode.connect(masterGain);
+
+      setupCognitiveSynth();
+    }
+
+    document.addEventListener('click', function() {
+      if (audioCtx && audioCtx.state === 'suspended' && state.isPlaying) audioCtx.resume();
+    });
+    document.addEventListener('touchstart', function() {
+      if (audioCtx && audioCtx.state === 'suspended' && state.isPlaying) audioCtx.resume();
+    });
+
+    function setupCognitiveSynth() {
+      if (!audioCtx) return;
+
+      binauralGain = audioCtx.createGain();
+      binauralGain.gain.value = state.binauralEnabled ? state.binauralVol * 0.2 : 0.0;
+
+      binauralLeftPanner = audioCtx.createStereoPanner ? audioCtx.createStereoPanner() : null;
+      binauralRightPanner = audioCtx.createStereoPanner ? audioCtx.createStereoPanner() : null;
+
+      if (binauralLeftPanner) binauralLeftPanner.pan.value = -1.0;
+      if (binauralRightPanner) binauralRightPanner.pan.value = 1.0;
+
+      binauralLeftOsc = audioCtx.createOscillator();
+      binauralRightOsc = audioCtx.createOscillator();
+
+      binauralLeftOsc.type = 'sine';
+      binauralRightOsc.type = 'sine';
+
+      updateBinauralFreqs();
+
+      if (binauralLeftPanner && binauralRightPanner) {
+        binauralLeftOsc.connect(binauralLeftPanner);
+        binauralLeftPanner.connect(binauralGain);
+        binauralRightOsc.connect(binauralRightPanner);
+        binauralRightPanner.connect(binauralGain);
+      } else {
+        binauralLeftOsc.connect(binauralGain);
+        binauralRightOsc.connect(binauralGain);
+      }
+      binauralGain.connect(analyserNode);
+
+      binauralLeftOsc.start();
+      binauralRightOsc.start();
+
+      solfeggioGain = audioCtx.createGain();
+      solfeggioGain.gain.value = state.solfeggioEnabled ? state.solfeggioVol * 0.15 : 0.0;
+      solfeggioOsc = audioCtx.createOscillator();
+      solfeggioOsc.type = 'sine';
+      solfeggioOsc.frequency.value = state.solfeggioHz;
+      solfeggioOsc.connect(solfeggioGain);
+      solfeggioGain.connect(analyserNode);
+      solfeggioOsc.start();
+
+      isochronicGain = audioCtx.createGain();
+      isochronicGain.gain.value = state.isochronicEnabled ? state.isochronicVol * 0.15 : 0.0;
+      isochronicOsc = audioCtx.createOscillator();
+      isochronicOsc.type = 'triangle';
+      isochronicOsc.frequency.value = 180;
+      isochronicOsc.connect(isochronicGain);
+      isochronicGain.connect(analyserNode);
+      isochronicOsc.start();
+    }
+
+    function updateBinauralFreqs() {
+      if (!binauralLeftOsc || !binauralRightOsc) return;
+      const carrier = state.binauralCarrierHz;
+      const beat = state.binauralBeatHz;
+      binauralLeftOsc.frequency.value = carrier - (beat / 2.0);
+      binauralRightOsc.frequency.value = carrier + (beat / 2.0);
+    }
+
+    // Genre Scales (Hz)
+    const genreScales = {
+      PSYTRANCE: [130.81, 138.59, 164.81, 174.61, 196.00, 207.65, 246.94, 261.63, 277.18, 329.63, 349.23, 392.00, 523.25], // Phrygian Dark
+      MELODIC_TECHNO: [130.81, 155.56, 174.61, 196.00, 233.08, 261.63, 311.13, 349.23, 392.00, 466.16, 523.25], // Minor Pentatonic Aeolian
+      PROGRESSIVE_HOUSE: [130.81, 146.83, 164.81, 174.61, 196.00, 220.00, 246.94, 261.63, 293.66, 329.63, 440.00, 523.25], // Major Euphoric
+      CYBERPUNK_TRANCE: [130.81, 138.59, 155.56, 174.61, 185.00, 207.65, 233.08, 261.63, 277.18, 311.13, 370.00, 466.16], // Dark Locrian Industrial
+      AMBIENT_LOFI: [130.81, 146.83, 155.56, 174.61, 196.00, 220.00, 233.08, 261.63, 293.66, 311.13, 392.00, 440.00] // Jazz 7th Chill Dorian
+    };
+
+    function playKick(time) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+
+      const isLofi = state.genre === 'AMBIENT_LOFI';
+      const isPsy = state.genre === 'PSYTRANCE';
+
+      osc.frequency.setValueAtTime(isPsy ? 160 : (isLofi ? 100 : 130), time);
+      osc.frequency.exponentialRampToValueAtTime(isPsy ? 45 : (isLofi ? 30 : 36), time + (isLofi ? 0.15 : 0.08));
+
+      gain.gain.setValueAtTime(isLofi ? 0.3 : 0.45, time);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + (isLofi ? 0.3 : 0.22));
+
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start(time);
+      osc.stop(time + (isLofi ? 0.3 : 0.22));
+    }
+
+    function playHiHat(time, open = false) {
+      const isLofi = state.genre === 'AMBIENT_LOFI';
+      const bufferSize = audioCtx.sampleRate * (open ? 0.12 : 0.04);
+      const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const output = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+      const whiteNoise = audioCtx.createBufferSource();
+      whiteNoise.buffer = buffer;
+
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'highpass';
+      filter.frequency.value = isLofi ? 4500 : 7500;
+
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(open ? 0.12 : 0.08, time);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + (open ? 0.12 : 0.04));
+
+      whiteNoise.connect(filter);
+      filter.connect(gain);
+      gain.connect(masterGain);
+      whiteNoise.start(time);
+      whiteNoise.stop(time + (open ? 0.12 : 0.04));
+    }
+
+    function playSnare(time) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = state.genre === 'CYBERPUNK_TRANCE' ? 'sawtooth' : 'triangle';
+      osc.frequency.setValueAtTime(170, time);
+      osc.frequency.exponentialRampToValueAtTime(75, time + 0.09);
+      gain.gain.setValueAtTime(0.2, time);
+      gain.gain.exponentialRampToValueAtTime(0.005, time + 0.12);
+
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start(time);
+      osc.stop(time + 0.12);
+
+      playHiHat(time, true);
+    }
+
+    function playBass(time, noteHz, duration = 0.18) {
+      const osc = audioCtx.createOscillator();
+      const subOsc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      const bassFilter = audioCtx.createBiquadFilter();
+
+      if (state.genre === 'PSYTRANCE') {
+        osc.type = 'sawtooth';
+        subOsc.type = 'sawtooth';
+      } else if (state.genre === 'CYBERPUNK_TRANCE') {
+        osc.type = 'sawtooth';
+        subOsc.type = 'square';
+      } else if (state.genre === 'AMBIENT_LOFI') {
+        osc.type = 'sine';
+        subOsc.type = 'triangle';
+      } else {
+        osc.type = 'square';
+        subOsc.type = 'sine';
+      }
+
+      osc.frequency.setValueAtTime(noteHz, time);
+      subOsc.frequency.setValueAtTime(noteHz / 2.0, time);
+
+      bassFilter.type = 'lowpass';
+      bassFilter.frequency.setValueAtTime(state.genre === 'PSYTRANCE' ? 1800 : (state.genre === 'AMBIENT_LOFI' ? 600 : 1100), time);
+      bassFilter.frequency.exponentialRampToValueAtTime(200, time + duration);
+
+      gain.gain.setValueAtTime(0.25, time);
+      gain.gain.exponentialRampToValueAtTime(0.005, time + duration);
+
+      osc.connect(bassFilter);
+      subOsc.connect(bassFilter);
+      bassFilter.connect(gain);
+      gain.connect(masterGain);
+
+      osc.start(time);
+      subOsc.start(time);
+      osc.stop(time + duration);
+      subOsc.stop(time + duration);
+    }
+
+    function playSynthLead(time, noteHz, duration = 0.22) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      if (state.genre === 'AMBIENT_LOFI') {
+        osc.type = 'sine';
+      } else if (state.genre === 'PROGRESSIVE_HOUSE') {
+        osc.type = 'triangle';
+      } else {
+        osc.type = 'sawtooth';
+      }
+
+      osc.frequency.setValueAtTime(noteHz, time);
+
+      gain.gain.setValueAtTime(0.14, time);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start(time);
+      osc.stop(time + duration);
+    }
+
+    function stepSequencer() {
+      if (!state.isPlaying || !audioCtx || audioCtx.state !== 'running') return;
+
+      const now = audioCtx.currentTime;
+      const step = stepIndex % 16;
+      const currentScale = genreScales[state.genre] || genreScales.MELODIC_TECHNO;
+
+      // --- GENRE-SPECIFIC RHYTHM PATTERNS ---
+      if (state.genre === 'PSYTRANCE') {
+        // Fast 16th rolling bass: Kick on 0,4,8,12; Bass on steps 1,2,3, 5,6,7, 9,10,11, 13,14,15
+        if (step % 4 === 0) {
+          playKick(now);
+        } else if (state.activeSection !== 'INTRO') {
+          const bassNote = currentScale[ (stepIndex % 4) ];
+          playBass(now, bassNote, 0.12);
+        }
+        if (step % 2 === 1) playHiHat(now, step % 4 === 3);
+        if (step === 4 || step === 12) playSnare(now);
+
+        if (state.activeSection === 'DROP' || state.activeSection === 'BUILDUP') {
+          const psyLeadNote = currentScale[(step * 3 + stepIndex) % currentScale.length];
+          playSynthLead(now, psyLeadNote * 1.5, 0.1);
+        }
+
+      } else if (state.genre === 'MELODIC_TECHNO') {
+        // Minimal driving techno: Kick on 0,4,8,12; Off-beat bass on 2,6,10,14
+        if (step % 4 === 0) playKick(now);
+        if (step % 4 === 2 && state.activeSection !== 'INTRO') {
+          const bassNote = currentScale[0];
+          playBass(now, bassNote, 0.22);
+        }
+        if (step === 4 || step === 12) playSnare(now);
+        if (step % 2 === 1) playHiHat(now, false);
+
+        if (state.activeSection === 'DROP' || state.activeSection === 'BREAKDOWN') {
+          if (step % 4 === 0) {
+            const chordRoot = currentScale[(stepIndex / 16 | 0) % currentScale.length];
+            playSynthLead(now, chordRoot, 0.35);
+            playSynthLead(now, chordRoot * 1.25, 0.35);
+          }
+        }
+
+      } else if (state.genre === 'PROGRESSIVE_HOUSE') {
+        // Euphoric Progressive House: Four-on-the-floor kick, open hi-hat on off-beat
+        if (step % 4 === 0) playKick(now);
+        if (step % 4 === 2) playHiHat(now, true);
+        if (step === 4 || step === 12) playSnare(now);
+        if (step % 2 === 0 && state.activeSection !== 'INTRO') {
+          const houseBass = currentScale[(step / 2) % 4];
+          playBass(now, houseBass, 0.18);
+        }
+        if (state.activeSection === 'DROP' || state.activeSection === 'BUILDUP') {
+          const arpeggioNote = currentScale[(step * 5) % currentScale.length];
+          playSynthLead(now, arpeggioNote * 2.0, 0.15);
+        }
+
+      } else if (state.genre === 'CYBERPUNK_TRANCE') {
+        // Industrial Electro Cyberpunk: Heavy kick on 0,4,8,12, syncopated bass
+        if (step % 4 === 0 || step === 14) playKick(now);
+        if (step === 4 || step === 12) playSnare(now);
+        if (step % 2 === 1) playHiHat(now, step === 15);
+
+        if (step % 2 === 1 && state.activeSection !== 'INTRO') {
+          const cyberBass = currentScale[(stepIndex * 2) % 6];
+          playBass(now, cyberBass, 0.14);
+        }
+        if (state.activeSection === 'DROP' || state.activeSection === 'BUILDUP') {
+          const cyberLead = currentScale[(step * 7) % currentScale.length];
+          playSynthLead(now, cyberLead * 1.8, 0.18);
+        }
+
+      } else if (state.genre === 'AMBIENT_LOFI') {
+        // Chill Lofi: Boom-bap kick on 0, 10; Snare/rimshot on 4, 12; Warm sine chords
+        if (step === 0 || step === 10) playKick(now);
+        if (step === 4 || step === 12) playSnare(now);
+        if (step % 4 === 2) playHiHat(now, false);
+
+        if (step === 0 || step === 8) {
+          const lofiBass = currentScale[0];
+          playBass(now, lofiBass, 0.4);
+        }
+        if (step % 8 === 0) {
+          const lofiChord = currentScale[(stepIndex / 16 | 0) % 4];
+          playSynthLead(now, lofiChord * 1.5, 0.5);
+          playSynthLead(now, lofiChord * 1.8, 0.5);
+        }
+      }
+
+      stepIndex++;
+    }
+
+    let lastScheduledBpm = 0;
+
+    function startSequencer() {
+      if (!audioCtx) return;
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      if (masterGain) {
+        masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+        masterGain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+      }
+
+      // Only restart timer if BPM changed or timer isn't active
+      if (!sequencerTimer || lastScheduledBpm !== state.bpm) {
+        if (sequencerTimer) clearInterval(sequencerTimer);
+        lastScheduledBpm = state.bpm;
+        const intervalMs = (60.0 / Math.max(60, state.bpm) / 4.0) * 1000.0;
+        sequencerTimer = setInterval(stepSequencer, intervalMs);
+      }
+    }
+
+    function stopSequencer() {
+      if (sequencerTimer) {
+        clearInterval(sequencerTimer);
+        sequencerTimer = null;
+      }
+      lastScheduledBpm = 0;
+      if (masterGain && audioCtx) {
+        masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+        masterGain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+      }
+      if (audioCtx && audioCtx.state === 'running') {
+        audioCtx.suspend();
+      }
+    }
+
+    // --- MUSICGEN & TRACK EXTENSION BRIDGES ---
+    let importedAudioBuffer = null;
+    let importedSourceNode = null;
+    let importedGainNode = null;
+
+    window.loadAndExtendAudioTrack = function(base64Data, fileName) {
+      initAudio();
+      try {
+        const binaryString = atob(base64Data);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        audioCtx.decodeAudioData(bytes.buffer, function(buffer) {
+          importedAudioBuffer = buffer;
+          const channelData = buffer.getChannelData(0);
+          let peaks = 0;
+          let energySum = 0;
+          const stepSize = Math.floor(buffer.sampleRate / 10);
+          for (let i = 0; i < channelData.length; i += stepSize) {
+            const val = Math.abs(channelData[i]);
+            energySum += val;
+            if (val > 0.6) peaks++;
+          }
+          
+          const estimatedBpm = Math.min(155, Math.max(90, Math.round((peaks / (buffer.duration / 60.0)) * 1.2)));
+          state.bpm = estimatedBpm;
+          state.isExtendingTrack = true;
+
+          if (importedSourceNode) importedSourceNode.stop();
+          importedSourceNode = audioCtx.createBufferSource();
+          importedSourceNode.buffer = buffer;
+          importedGainNode = audioCtx.createGain();
+          importedGainNode.gain.value = 0.85;
+
+          importedSourceNode.connect(importedGainNode);
+          importedGainNode.connect(masterGain);
+
+          importedSourceNode.start();
+
+          const extensionStartTime = buffer.duration > 8 ? buffer.duration - 4 : buffer.duration * 0.8;
+          setTimeout(() => {
+            if (state.isPlaying) {
+              startSequencer();
+            }
+          }, extensionStartTime * 1000);
+
+          document.getElementById('overlay').innerText = `NOOAURIA EXTENDING: ${fileName.toUpperCase()} | DETECTED BPM: ${estimatedBpm}`;
+        }, function(err) {
+          console.error("Audio decode error:", err);
+        });
+      } catch (e) {
+        console.error("Error processing track:", e);
+      }
+    };
+
+    window.playMusicGenGeneratedWav = function(base64WavData) {
+      initAudio();
+      try {
+        const binaryString = atob(base64WavData);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        audioCtx.decodeAudioData(bytes.buffer, function(buffer) {
+          const source = audioCtx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(masterGain);
+          source.start();
+          document.getElementById('overlay').innerText = `NOOAURIA MUSICGEN TRANSFORMER: PLAYING EXTENSION (${buffer.duration.toFixed(1)}s)`;
+        }, function(err) {
+          console.error("MusicGen Wav decode error:", err);
+        });
+      } catch (e) {
+        console.error("MusicGen playback error:", e);
+      }
+    };
+
+    // --- CONTROLS DISPATCHER FROM KOTLIN ---
+    window.setEngineState = function(jsonStr) {
+      try {
+        const data = JSON.parse(jsonStr);
+        Object.assign(state, data);
+
+        document.getElementById('overlay').innerText = `NOOAURIA | GENRE: ${state.genre} | BPM: ${state.bpm} | SEC: ${state.activeSection}`;
+
+        if (state.isPlaying) {
+          initAudio();
+          if (audioCtx.state === 'suspended') audioCtx.resume();
+          startSequencer();
+        } else {
+          stopSequencer();
+        }
+
+        if (filterNode) {
+          filterNode.frequency.value = 200 + (state.filterCutoff * 18000);
+        }
+        if (binauralGain) {
+          binauralGain.gain.value = state.binauralEnabled ? state.binauralVol * 0.35 : 0.0;
+          updateBinauralFreqs();
+        }
+        if (solfeggioOsc && solfeggioGain) {
+          solfeggioOsc.frequency.value = state.solfeggioHz;
+          solfeggioGain.gain.value = state.solfeggioEnabled ? state.solfeggioVol * 0.3 : 0.0;
+        }
+      } catch(e) {
+        console.error("Error setting state:", e);
+      }
+    };
+
+    // --- CANVAS GENERATIVE AUDIO VISUALIZER ---
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let width, height;
+
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    const particles = [];
+    for (let i = 0; i < 250; i++) {
+      particles.push({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        z: Math.random() * width,
+        size: Math.random() * 3 + 1,
+        angle: Math.random() * Math.PI * 2,
+        speed: Math.random() * 2 + 0.5
+      });
+    }
+
+    let timeAcc = 0;
+
+    function renderVisualizer() {
+      requestAnimationFrame(renderVisualizer);
+      timeAcc += 0.015 * state.speed;
+
+      let audioEnergy = 0.5;
+      if (analyserNode) {
+        const freqData = new Uint8Array(analyserNode.frequencyBinCount);
+        analyserNode.getByteFrequencyData(freqData);
+        let sum = 0;
+        for (let i = 0; i < freqData.length; i++) sum += freqData[i];
+        audioEnergy = (sum / freqData.length / 255.0) * state.audioSensitivity;
+      }
+
+      ctx.fillStyle = 'rgba(5, 5, 12, 0.2)';
+      ctx.fillRect(0, 0, width, height);
+
+      const cx = width / 2;
+      const cy = height / 2;
+
+      if (state.geometry === 'COSMIC_TUNNEL') {
+        const rings = 18;
+        for (let i = rings; i > 0; i--) {
+          const r = (i * 25 + (timeAcc * 60) % 25) * (1.0 + audioEnergy * 0.5);
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.strokeStyle = i % 2 === 0 ? state.primaryColor : state.secondaryColor;
+          ctx.lineWidth = (2 + (rings - i) * 0.3) * state.bloomIntensity;
+          ctx.shadowBlur = 15 * state.bloomIntensity;
+          ctx.shadowColor = state.primaryColor;
+          ctx.stroke();
+        }
+      } else if (state.geometry === 'SACRED_MANDALA') {
+        const petals = 12;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(timeAcc * 0.5);
+        for (let i = 0; i < petals; i++) {
+          ctx.rotate((Math.PI * 2) / petals);
+          ctx.beginPath();
+          ctx.ellipse(0, 80 + audioEnergy * 60, 40, 90 + audioEnergy * 40, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = state.primaryColor;
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+        }
+        ctx.restore();
+      } else if (state.geometry === 'NEON_GRID') {
+        ctx.strokeStyle = state.primaryColor;
+        ctx.lineWidth = 1.5;
+        const horizon = cy + 40;
+        for (let x = -width; x < width * 2; x += 60) {
+          ctx.beginPath();
+          ctx.moveTo(x, height);
+          ctx.lineTo(cx + (x - cx) * 0.1, horizon);
+          ctx.stroke();
+        }
+        for (let y = horizon; y < height; y += 20 + audioEnergy * 15) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(width, y);
+          ctx.stroke();
+        }
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(0, cy);
+        for (let x = 0; x < width; x += 10) {
+          const y = cy + Math.sin(x * 0.01 + timeAcc * 3) * (50 + audioEnergy * 80) + Math.cos(x * 0.02) * 30;
+          ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = state.secondaryColor;
+        ctx.lineWidth = 4;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = state.accentColor;
+        ctx.stroke();
+      }
+
+      for (let p of particles) {
+        p.z -= p.speed * 2.0 * state.speed;
+        if (p.z <= 0) p.z = width;
+
+        const k = 250 / p.z;
+        const px = (p.x - cx) * k + cx;
+        const py = (p.y - cy) * k + cy;
+
+        if (px >= 0 && px <= width && py >= 0 && py <= height) {
+          const size = Math.max(1, (1 - p.z / width) * 5 * (1 + audioEnergy * 0.8));
+          ctx.beginPath();
+          ctx.arc(px, py, size, 0, Math.PI * 2);
+          ctx.fillStyle = state.accentColor;
+          ctx.fill();
+        }
+      }
+    }
+
+    renderVisualizer();
+  </script>
+</body>
+</html>
