@@ -43,22 +43,26 @@ fun CognitiveScreen(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(BioSurfaceRaised, RoundedCornerShape(topStart = 28.dp, topEnd = 12.dp, bottomEnd = 28.dp, bottomStart = 12.dp))
+                .border(1.dp, BioGlassBorder, RoundedCornerShape(topStart = 28.dp, topEnd = 12.dp, bottomEnd = 28.dp, bottomStart = 12.dp))
+                .padding(14.dp)
         ) {
             Icon(imageVector = Icons.Default.Psychology, contentDescription = "Brain", tint = BioEmerald, modifier = Modifier.size(32.dp))
             Spacer(modifier = Modifier.width(10.dp))
             Column {
                 Text(
-                    text = "BIOCYBER ENTRAINMENT",
+                    text = "NEURAL GARDEN",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Black,
                     color = BioEmerald,
                     letterSpacing = 1.5.sp
                 )
                 Text(
-                    text = "Organoid Frequency & Neural Resonance Matrix",
+                    text = "Tune the inner habitat with sound",
                     fontSize = 10.sp,
-                    color = BioCyan
+                    color = BioMuted
                 )
             }
         }
@@ -66,7 +70,7 @@ fun CognitiveScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "SYNAPTIC MIND PRESETS",
+            text = "GROWTH STATES",
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             color = BioCyan,
@@ -128,7 +132,7 @@ fun CognitiveScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(text = "432 Hz SACRED TUNING MODE", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SynapticGold)
+                    Text(text = "432 HZ ORGANIC TUNING", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SynapticGold)
                     Switch(
                         checked = cognitiveState.tuning432HzEnabled,
                         onCheckedChange = { onStateChange(cognitiveState.copy(tuning432HzEnabled = it)) },
@@ -143,7 +147,7 @@ fun CognitiveScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(text = "BROWN NOISE AMBIENT SHIELD", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = BioCyan)
+                    Text(text = "BROWN NOISE SOIL BED", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = BioCyan)
                     Switch(
                         checked = cognitiveState.brownNoiseEnabled,
                         onCheckedChange = { onStateChange(cognitiveState.copy(brownNoiseEnabled = it)) },

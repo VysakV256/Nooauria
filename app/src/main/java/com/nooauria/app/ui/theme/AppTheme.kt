@@ -6,15 +6,19 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-// Bio-Cyber-Utopian Color Tokens
-val BioEmerald = Color(0xFF00FF9D)        // Bioluminescent Emerald Green
-val BioCyan = Color(0xFF00F5D4)           // Bio-Cyan Glow
-val SynapticGold = Color(0xFFFFD700)      // True Gold (24K Pure Gold)
-val CyberViolet = Color(0xFF7000FF)       // Cybernetic Deep Violet
-val BioDarkBackground = Color(0xFF020E0C) // Deep Chlorophyll Darkness
-val BioGlassBg = Color(0x2000FF9D)        // Bioluminescent Glass Card
-val BioGlassBorder = Color(0x4000FF9D)    // Cell-Wall Border
-val GlowPink = Color(0xFFFF007F)          // Cyber Bloom Pink
+// Nooauria living-system palette: soft chlorophyll, fungal warmth and coral signals.
+val BioEmerald = Color(0xFFB8F35A)
+val BioCyan = Color(0xFF67E8C2)
+val SynapticGold = Color(0xFFF3D58B)
+val CyberViolet = Color(0xFF7967E8)
+val BioDarkBackground = Color(0xFF07100C)
+val BioSurface = Color(0xFF101D17)
+val BioSurfaceRaised = Color(0xFF17261E)
+val BioCream = Color(0xFFF1F3DC)
+val BioMuted = Color(0xFF93A89B)
+val BioGlassBg = Color(0xCC101D17)
+val BioGlassBorder = Color(0x385D846F)
+val GlowPink = Color(0xFFFF8066)
 
 // Theme aliases for seamless UI integration
 val DarkBackground = BioDarkBackground
@@ -31,11 +35,14 @@ private val DarkColorScheme = darkColorScheme(
     secondary = BioCyan,
     tertiary = SynapticGold,
     background = BioDarkBackground,
-    surface = BioDarkBackground,
-    onPrimary = Color.Black,
-    onSecondary = Color.Black,
-    onBackground = Color.White,
-    onSurface = Color.White
+    surface = BioSurface,
+    surfaceVariant = BioSurfaceRaised,
+    outline = BioGlassBorder,
+    onPrimary = BioDarkBackground,
+    onSecondary = BioDarkBackground,
+    onBackground = BioCream,
+    onSurface = BioCream,
+    onSurfaceVariant = BioMuted
 )
 
 @Composable

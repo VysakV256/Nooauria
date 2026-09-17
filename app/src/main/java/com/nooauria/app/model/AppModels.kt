@@ -114,16 +114,16 @@ data class ChatMessage(
 
 data class VisualizerState(
     val geometry: VisualizerGeometry = VisualizerGeometry.COSMIC_TUNNEL,
-    val primaryColor: String = "#00FFFF",
-    val secondaryColor: String = "#FF00FF",
-    val accentColor: String = "#7B2CBF",
+    val primaryColor: String = "#B8F35A",
+    val secondaryColor: String = "#67E8C2",
+    val accentColor: String = "#FF8066",
     val audioSensitivity: Float = 1.0f,
     val speed: Float = 1.0f,
     val particleDensity: Int = 300,
     val bloomIntensity: Float = 0.7f,
     val isRotating: Boolean = true,
-    val activePrompt: String = "Cosmic wormhole reacting to sub bass and solfeggio 528Hz",
+    val activePrompt: String = "Living mycelial habitat breathing with sub bass and 528Hz",
     val chatHistory: List<ChatMessage> = listOf(
-        ChatMessage("Nooauria AI", "Welcome to Nooauria! Type any prompt to re-design your audio visualizer (e.g. 'Cyberpunk matrix with neon blue glow' or 'Golden 528Hz mandala').")
+        ChatMessage("Nooauria", "The habitat is listening. Describe a living scene and I’ll evolve it with your sound.")
     )
 )

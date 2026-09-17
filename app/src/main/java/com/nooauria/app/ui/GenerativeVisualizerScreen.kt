@@ -101,11 +101,12 @@ fun GenerativeVisualizerScreen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .fillMaxHeight(0.48f)
-                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                .background(DarkBackground.copy(alpha = 0.88f))
-                .border(1.dp, GlassBorder, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                .padding(12.dp)
+                .fillMaxHeight(0.46f)
+                .padding(horizontal = 10.dp, vertical = 8.dp)
+                .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 14.dp, bottomEnd = 32.dp, bottomStart = 14.dp))
+                .background(BioSurface.copy(alpha = 0.94f))
+                .border(1.dp, GlassBorder, RoundedCornerShape(topStart = 32.dp, topEnd = 14.dp, bottomEnd = 32.dp, bottomStart = 14.dp))
+                .padding(14.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -116,7 +117,7 @@ fun GenerativeVisualizerScreen(
                     Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = "AI", tint = NeonCyan)
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "GENERATIVE VISUALIZER AI CHAT",
+                        text = "HABITAT DESIGNER",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = NeonCyan,
@@ -124,7 +125,7 @@ fun GenerativeVisualizerScreen(
                     )
                 }
                 Text(
-                    text = "Prompt Scene Live",
+                    text = "LIVE · LISTENING",
                     fontSize = 10.sp,
                     color = Color.Gray
                 )
@@ -137,11 +138,11 @@ fun GenerativeVisualizerScreen(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
             ) {
                 val suggestions = listOf(
-                    "Cyberpunk matrix with neon blue glow",
-                    "Golden 528Hz sacred mandala",
-                    "Cosmic purple wormhole fast speed",
-                    "Aurora spectrum liquid waves",
-                    "Hyper quantum starfield"
+                    "Mycelium breathing with the bass",
+                    "Golden 528Hz seed mandala",
+                    "Coral bloom with slow violet pulses",
+                    "Aurora algae in a liquid current",
+                    "Quantum spores drifting in deep space"
                 )
                 items(suggestions) { sugg ->
                     Box(
@@ -209,7 +210,7 @@ fun GenerativeVisualizerScreen(
                 OutlinedTextField(
                     value = promptInput,
                     onValueChange = { promptInput = it },
-                    placeholder = { Text("Prompt visualizer scene (e.g. 'Golden mandala 528Hz')", fontSize = 11.sp, color = Color.Gray) },
+                    placeholder = { Text("Describe how the habitat should evolve…", fontSize = 11.sp, color = BioMuted) },
                     modifier = Modifier.weight(1f),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = NeonCyan,

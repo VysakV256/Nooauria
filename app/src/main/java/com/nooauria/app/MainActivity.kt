@@ -6,7 +6,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -14,7 +17,11 @@ import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -30,6 +37,10 @@ import com.nooauria.app.ui.theme.DarkBackground
 import com.nooauria.app.ui.theme.NooauriaTheme
 import com.nooauria.app.ui.theme.NeonCyan
 import com.nooauria.app.ui.theme.NeonMagenta
+import com.nooauria.app.ui.theme.BioCream
+import com.nooauria.app.ui.theme.BioGlassBorder
+import com.nooauria.app.ui.theme.BioSurface
+import com.nooauria.app.ui.theme.BioMuted
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,30 +88,39 @@ fun MainAppScreen() {
     }
 
     Scaffold(
+        containerColor = Color.Transparent,
         bottomBar = {
             NavigationBar(
-                containerColor = DarkBackground,
-                contentColor = Color.White,
-                tonalElevation = 8.dp,
-                modifier = Modifier.height(70.dp)
+                containerColor = BioSurface,
+                contentColor = BioCream,
+                tonalElevation = 0.dp,
+                modifier = Modifier
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                    .height(72.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .border(1.dp, BioGlassBorder, RoundedCornerShape(28.dp)),
+                windowInsets = WindowInsets(0, 0, 0, 0)
             ) {
                 NavigationBarItem(
                     selected = selectedTab == NavigationTab.DJ_CONSOLE,
                     onClick = { selectedTab = NavigationTab.DJ_CONSOLE },
-                    icon = { Icon(Icons.Default.Album, contentDescription = "DJ", tint = if (selectedTab == NavigationTab.DJ_CONSOLE) NeonCyan else Color.Gray) },
-                    label = { Text("DJ Console", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (selectedTab == NavigationTab.DJ_CONSOLE) NeonCyan else Color.Gray) }
+                    icon = { Icon(Icons.Default.Album, contentDescription = "Organism mixer") },
+                    label = { Text("MIX", fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp) },
+                    colors = livingNavColors()
                 )
                 NavigationBarItem(
                     selected = selectedTab == NavigationTab.COGNITIVE,
                     onClick = { selectedTab = NavigationTab.COGNITIVE },
-                    icon = { Icon(Icons.Default.Psychology, contentDescription = "Brain", tint = if (selectedTab == NavigationTab.COGNITIVE) NeonCyan else Color.Gray) },
-                    label = { Text("Brain Frequency", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (selectedTab == NavigationTab.COGNITIVE) NeonCyan else Color.Gray) }
+                    icon = { Icon(Icons.Default.Psychology, contentDescription = "Neural field") },
+                    label = { Text("MIND", fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp) },
+                    colors = livingNavColors()
                 )
                 NavigationBarItem(
                     selected = selectedTab == NavigationTab.VISUALIZER,
                     onClick = { selectedTab = NavigationTab.VISUALIZER },
-                    icon = { Icon(Icons.Default.AutoAwesome, contentDescription = "Visualizer", tint = if (selectedTab == NavigationTab.VISUALIZER) NeonMagenta else Color.Gray) },
-                    label = { Text("AI Visualizer", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (selectedTab == NavigationTab.VISUALIZER) NeonMagenta else Color.Gray) }
+                    icon = { Icon(Icons.Default.AutoAwesome, contentDescription = "Generative habitat") },
+                    label = { Text("HABITAT", fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp) },
+                    colors = livingNavColors()
                 )
             }
         }
@@ -109,8 +129,14 @@ fun MainAppScreen() {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(DarkBackground)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(Color(0xFF173124), DarkBackground),
+                        radius = 1100f
+                    )
+                )
         ) {
+            LivingField(modifier = Modifier.fillMaxSize())
             // Always mount GenerativeVisualizerScreen (hosts WebAudio & Visualizer Engine)
             GenerativeVisualizerScreen(
                 djState = djState,
@@ -145,5 +171,28 @@ fun MainAppScreen() {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun livingNavColors() = NavigationBarItemDefaults.colors(
+    selectedIconColor = DarkBackground,
+    selectedTextColor = NeonCyan,
+    indicatorColor = NeonCyan,
+    unselectedIconColor = BioMuted,
+    unselectedTextColor = BioMuted
+)
+
+@Composable
+private fun LivingField(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val membrane = Path().apply {
+            moveTo(-40f, size.height * .18f)
+            cubicTo(size.width * .18f, size.height * .08f, size.width * .22f, size.height * .34f, size.width * .5f, size.height * .25f)
+            cubicTo(size.width * .78f, size.height * .16f, size.width * .82f, size.height * .38f, size.width + 40f, size.height * .28f)
+        }
+        drawPath(membrane, color = NeonCyan.copy(alpha = .09f), style = Stroke(width = 2f))
+        drawCircle(NeonCyan.copy(alpha = .08f), radius = size.minDimension * .26f, center = center)
+        drawCircle(NeonMagenta.copy(alpha = .06f), radius = size.minDimension * .13f, center = center)
     }
 }

@@ -91,11 +91,10 @@ fun DjConsoleScreen(
                     )
                 }
                 Text(
-                    text = "BIOCYBER UTOPIAN AUDIO SYNAPSE",
+                    text = "living audio system · habitat 01",
                     fontSize = 9.sp,
-                    color = BioCyan,
-                    letterSpacing = 1.5.sp,
-                    fontWeight = FontWeight.Bold
+                    color = BioMuted,
+                    letterSpacing = 1.sp
                 )
             }
 
@@ -114,7 +113,7 @@ fun DjConsoleScreen(
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = if (djState.isPlaying) "STOP" else "PULSE LIVE",
+                    text = if (djState.isPlaying) "REST" else "AWAKEN",
                     fontWeight = FontWeight.Black,
                     color = Color.Black,
                     fontSize = 11.sp
@@ -124,19 +123,19 @@ fun DjConsoleScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Bioluminescent Dual Turntable Decks
+        // Paired audio organisms
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(145.dp)
-                .background(BioGlassBg, RoundedCornerShape(20.dp))
-                .border(1.5.dp, BioGlassBorder, RoundedCornerShape(20.dp))
+                .background(BioGlassBg, RoundedCornerShape(topStart = 30.dp, topEnd = 12.dp, bottomEnd = 30.dp, bottomStart = 12.dp))
+                .border(1.dp, BioGlassBorder, RoundedCornerShape(topStart = 30.dp, topEnd = 12.dp, bottomEnd = 30.dp, bottomStart = 12.dp))
                 .padding(8.dp),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
             BioTurntableDeck(
-                deckName = "BIOCELL A",
+                deckName = "ORGANISM A",
                 bpm = djState.bpm,
                 rotationAngle = if (djState.isPlaying) rotationAngle else 0f,
                 accentColor = BioEmerald
@@ -167,7 +166,7 @@ fun DjConsoleScreen(
             }
 
             BioTurntableDeck(
-                deckName = "BIOCELL B",
+                deckName = "ORGANISM B",
                 bpm = djState.bpm,
                 rotationAngle = if (djState.isPlaying) -rotationAngle else 0f,
                 accentColor = BioCyan
@@ -178,7 +177,7 @@ fun DjConsoleScreen(
 
         // Sub-Genre Organoid Carousel
         Text(
-            text = "BIOLOGICAL SUB-GENRE MATRIX",
+            text = "SONIC SPECIES",
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             color = BioCyan,
@@ -241,8 +240,8 @@ fun DjConsoleScreen(
                         Icon(imageVector = Icons.Default.MusicNote, contentDescription = "Music", tint = SynapticGold)
                         Spacer(modifier = Modifier.width(8.dp))
                         Column {
-                            Text(text = "MUSICGEN TRANSFORMER MODEL", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                            Text(text = "Neural audio prompt style continuation", fontSize = 9.sp, color = Color.Gray)
+                            Text(text = "GROW FROM A SAMPLE", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = BioCream)
+                            Text(text = "Let the neural composer continue its DNA", fontSize = 9.sp, color = BioMuted)
                         }
                     }
                     Button(
@@ -298,7 +297,7 @@ fun DjConsoleScreen(
 
         // Track Section Pills
         Text(
-            text = "SYNAPTIC TRACK EVOLUTION",
+            text = "EVOLUTION STAGE",
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             color = BioCyan,
@@ -333,7 +332,7 @@ fun DjConsoleScreen(
 
         // Bioluminescent Remix Trigger Pads
         Text(
-            text = "BIOCYBER REMIX PADS",
+            text = "MUTATION GARDEN",
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             color = BioCyan,
