@@ -23,6 +23,7 @@
     #maximize-shader { position:absolute; top:58px; right:28px; z-index:4; padding:10px 13px; color:#67e8c2; background:rgba(16,29,23,.72); border:1px solid rgba(103,232,194,.28); border-radius:16px 7px 16px 7px; backdrop-filter:blur(12px); }
     body.shader-maximized #control-dock, body.shader-maximized #brand, body.shader-maximized #overlay { opacity:0; pointer-events:none; }
     body.shader-maximized #maximize-shader { top:18px; right:18px; opacity:.55; }
+    body.shader-maximized #awaken { top:18px; }
     #control-dock {
       position:absolute; left:50%; bottom:24px; transform:translateX(-50%); width:min(960px,calc(100% - 32px));
       padding:18px; color:#f1f3dc; background:rgba(16,29,23,.86); border:1px solid rgba(103,232,194,.22);
@@ -31,10 +32,14 @@
     .dock-head { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:14px; }
     .eyebrow { color:#67e8c2; font-size:10px; letter-spacing:.17em; text-transform:uppercase; }
     .pulse { color:#93a89b; font-size:11px; }
-    .controls { display:grid; grid-template-columns:auto 1fr auto; gap:14px; align-items:center; }
+    .controls { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:14px; align-items:center; }
     button { border:0; font:700 11px/1 sans-serif; letter-spacing:.08em; cursor:pointer; }
-    #awaken { min-width:110px; padding:15px 18px; color:#07100c; background:#b8f35a; border-radius:22px 10px 22px 10px; }
+    #awaken { position:absolute; top:58px; right:190px; z-index:4; display:flex; align-items:center; justify-content:center; gap:9px; min-width:156px; min-height:44px; padding:15px 18px; color:#07100c; background:#b8f35a; border-radius:22px 10px 22px 10px; box-shadow:0 6px 24px rgba(0,0,0,.25); }
     #awaken.live { background:#ff8066; }
+    #awaken .rest-label, #awaken.live .emerge-label { opacity:.5; }
+    #awaken.live .rest-label { opacity:1; }
+    #awaken .playback-divider { opacity:.35; }
+    #awaken:focus-visible { outline:2px solid #f1f3dc; outline-offset:4px; }
     .species { display:flex; gap:7px; overflow:auto; scrollbar-width:none; }
     .species button { padding:12px 14px; white-space:nowrap; color:#93a89b; background:rgba(255,255,255,.035); border:1px solid rgba(147,168,155,.2); border-radius:16px; }
     .species button.active { color:#07100c; background:#67e8c2; border-color:#67e8c2; }
@@ -75,8 +80,11 @@
     .tone-toggles button { padding:11px 12px; color:#93a89b; background:rgba(255,255,255,.025); border:1px solid rgba(147,168,155,.2); border-radius:14px 7px 14px 7px; }
     .tone-toggles button.active { color:#07100c; background:#67e8c2; border-color:#67e8c2; }
     @media(max-width:680px){
-      #brand{top:20px;left:20px} #overlay{top:72px;left:20px;right:auto} #maximize-shader{top:96px;right:20px}
-      #control-dock{bottom:10px;padding:14px;max-height:76vh;overflow:auto}.controls{grid-template-columns:1fr auto}.species{grid-column:1/-1;grid-row:1}.tempo{display:none}#awaken{grid-column:1/-1}.spectral-lab{grid-template-columns:1fr 1fr}.spectrum-types{grid-column:1/-1}.spectral-lab label:nth-of-type(3){display:none}#evolve{align-self:stretch}.amplifier-meta{align-items:start}.amplifier-meta p{max-width:260px}.frequency-grid{grid-template-columns:1fr 1fr}.tone-toggles{grid-column:1/-1}.frequency-grid label:nth-of-type(3){grid-column:1/-1}
+      #brand{top:20px;left:20px} #overlay{top:72px;left:20px;right:auto} #maximize-shader{top:96px;right:20px} #awaken{top:96px;left:20px;right:auto}
+      #control-dock{bottom:10px;padding:14px;max-height:min(76vh,calc(100dvh - 160px));overflow:auto}.controls{grid-template-columns:1fr}.species{grid-column:1/-1;grid-row:1}.tempo{display:none}.spectral-lab{grid-template-columns:1fr 1fr}.spectrum-types{grid-column:1/-1}.spectral-lab label:nth-of-type(3){display:none}#evolve{align-self:stretch}.amplifier-meta{align-items:start}.amplifier-meta p{max-width:260px}.frequency-grid{grid-template-columns:1fr 1fr}.tone-toggles{grid-column:1/-1}.frequency-grid label:nth-of-type(3){grid-column:1/-1}
+    }
+    @media(max-width:380px){
+      #awaken{min-width:136px;gap:6px;padding:15px 12px;font-size:10px} #maximize-shader{padding:12px 10px;font-size:9px}
     }
   </style>
 </head>
@@ -84,6 +92,7 @@
   <canvas id="canvas"></canvas>
   <div id="brand"><strong><i id="bio-mark"></i>NOOAURIA</strong><span>living audio habitat · web organism 01</span></div>
   <div id="overlay">NOOAURIA · HABITAT ONLINE</div>
+  <button id="awaken" type="button" aria-label="Emerge | Rest" aria-pressed="false" aria-describedby="pulse-readout" title="Emerge: start the selected biodynamic"><span class="emerge-label">EMERGE</span><span class="playback-divider" aria-hidden="true">|</span><span class="rest-label">REST</span></button>
   <button id="maximize-shader" type="button" aria-label="Maximize shader">MAXIMIZE SHADER</button>
   <section id="control-dock" aria-label="Nooauria habitat controls">
     <div class="dock-head"><span class="eyebrow">Choose an evolutionary state</span><span class="pulse" id="pulse-readout">128 BPM · dormant</span></div>
@@ -105,7 +114,6 @@
       <button type="button" class="active" data-amplifier="NOETIC_HYPERFLUX">NOETIC HYPERFLUX</button>
     </div>
     <div class="controls">
-      <button id="awaken" type="button">AWAKEN</button>
       <div class="species" aria-label="Visual habitats">
         <button type="button" class="active" data-geometry="COSMIC_TUNNEL">MYCELIAL TUNNEL</button>
         <button type="button" data-geometry="SACRED_MANDALA">SEED MANDALA</button>
@@ -1339,8 +1347,9 @@
       maximizeShaderButton.textContent = document.body.classList.contains('shader-maximized') ? 'RESTORE UI' : 'MAXIMIZE SHADER';
     });
     function syncWebControls() {
-      awakenButton.textContent = state.isPlaying ? 'LET REST' : 'AWAKEN';
       awakenButton.classList.toggle('live', state.isPlaying);
+      awakenButton.setAttribute('aria-pressed', String(state.isPlaying));
+      awakenButton.setAttribute('title', state.isPlaying ? 'Rest: pause the selected biodynamic' : 'Emerge: start the selected biodynamic');
       pulseReadout.textContent = `${state.bpm} BPM · ${state.isPlaying ? 'organism active' : 'dormant'}`;
       evolveButton.classList.toggle('active', state.generativeEnabled);
       evolveButton.textContent = state.generativeEnabled ? 'EVOLVING' : 'AUTO-EVOLVE';

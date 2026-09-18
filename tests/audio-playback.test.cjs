@@ -88,7 +88,9 @@ function habitat() {
     if (!elements.has(id)) {
       const e = new Events(); e.id = id; e.dataset = {}; e.value = 50; e.textContent = '';
       e.classList = { add() {}, remove() {}, toggle() {}, contains: () => false };
-      e.setAttribute = () => {};
+      e.attributes = new Map();
+      e.setAttribute = (name, value) => e.attributes.set(name, String(value));
+      e.getAttribute = name => e.attributes.get(name);
       e.getContext = () => new Proxy({}, { get: () => () => {} });
       e.click = () => { e.emit('click'); document.emit('click'); };
       elements.set(id, e);
@@ -115,6 +117,30 @@ function habitat() {
     click: (kind, name) => element(`${kind}:${name}`).click(),
     advance(seconds) { const ctx = sandbox.inspectAudio().context; ctx.advance(seconds); for (const fn of [...intervals.values()]) fn(); } };
 }
+
+test('Emerge | Rest starts and rests the biodynamic repeatedly', async () => {
+  assert.match(html, /id="awaken"[^>]*aria-label="Emerge \| Rest"[^>]*aria-pressed="false"/);
+  const h = habitat();
+  const button = h.element('awaken');
+  assert.equal(h.inspect().playing, false);
+  for (let cycle = 0; cycle < 6; cycle++) {
+    button.click(); await settle();
+    assert.equal(button.getAttribute('aria-pressed'), 'true');
+    assert.equal(button.getAttribute('title'), 'Rest: pause the selected biodynamic');
+    assert.equal(h.inspect().context.state, 'running');
+    assert.equal(h.intervals.size, 1);
+    assert.ok(h.inspect().voiceCount > 0);
+    button.click(); await settle();
+    assert.equal(button.getAttribute('aria-pressed'), 'false');
+    assert.equal(button.getAttribute('title'), 'Emerge: start the selected biodynamic');
+    assert.equal(h.inspect().playing, false);
+    assert.equal(h.inspect().context.state, 'suspended');
+    assert.equal(h.inspect().voiceCount, 0);
+    assert.equal(h.intervals.size, 0);
+  }
+  assert.equal(h.contexts.length, 1);
+  assert.equal(h.errors.length, 0);
+});
 
 test('all biodynamics remain playable through 176 switches with one context and one clock', async () => {
   const h = habitat();
