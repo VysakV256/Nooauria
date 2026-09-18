@@ -176,14 +176,41 @@
     let delayReturnGain = null;
     let delayFeedback = null;
     let analyserNode = null;
-    let activeVoiceCount = 0;
+    const activeVoices = new Set();
     const maxActiveVoices = 22;
 
     function reserveVoice(durationSeconds) {
-      if (activeVoiceCount >= maxActiveVoices) return false;
-      activeVoiceCount++;
-      setTimeout(() => { activeVoiceCount = Math.max(0, activeVoiceCount - 1); }, Math.max(80, durationSeconds * 1000 + 60));
-      return true;
+      if (!audioCtx || audioCtx.state !== 'running') return null;
+      // Audio-time expiry also recovers a reservation if voice construction ever throws.
+      for (const voice of activeVoices) {
+        if (voice.expiresAt <= audioCtx.currentTime) voice.dispose();
+      }
+      if (activeVoices.size >= maxActiveVoices) return null;
+      const voice = { sources: [], nodes: [], expiresAt: audioCtx.currentTime + durationSeconds + .1 };
+      voice.dispose = () => {
+        if (!activeVoices.delete(voice)) return;
+        for (const source of voice.sources) {
+          try { source.stop(); } catch (_) { /* Already stopped or context closed. */ }
+        }
+        for (const node of [...voice.sources, ...voice.nodes]) node.disconnect();
+      };
+      activeVoices.add(voice);
+      return voice;
+    }
+
+    function trackVoice(voice, sources, nodes) {
+      voice.sources = sources;
+      voice.nodes = nodes;
+      let remaining = sources.length;
+      for (const source of sources) {
+        source.addEventListener('ended', () => {
+          if (--remaining === 0) voice.dispose();
+        }, { once: true });
+      }
+    }
+
+    function clearSynthVoices() {
+      for (const voice of activeVoices) voice.dispose();
     }
 
     // --- COGNITIVE FREQUENCY NODES ---
@@ -278,17 +305,23 @@
 
     let stepIndex = 0;
     let sequencerTimer = null;
+    let playbackEpoch = 0;
+    let audioStartRequest = null;
+    let audioStopRequest = null;
 
     let limiterNode = null;
     let delayFilter = null;
 
     function initAudio() {
-      if (audioCtx) {
-        if (audioCtx.state === 'suspended' && state.isPlaying) audioCtx.resume();
-        return;
-      }
+      if (audioCtx && audioCtx.state !== 'closed') return;
+      clearSequencerClock();
+      clearSynthVoices();
+      playbackEpoch++;
+      audioStartRequest = null;
+      audioStopRequest = null;
+      crystalLeadWave = null;
       const AudioContext = window.AudioContext || window.webkitAudioContext;
-      audioCtx = new AudioContext();
+      audioCtx = new AudioContext({ latencyHint: 'interactive' });
 
       limiterNode = audioCtx.createDynamicsCompressor();
       limiterNode.threshold.value = -8.0;
@@ -350,14 +383,27 @@
       delayReturnGain.connect(masterGain);
 
       setupCognitiveSynth();
+      applyAudioParameters();
+      const context = audioCtx;
+      context.addEventListener('statechange', () => {
+        if (context !== audioCtx) return;
+        if (context.state !== 'running') clearSequencerClock();
+        if (state.isPlaying && !audioStopRequest) startSequencer();
+        updatePlaybackStatus();
+      });
     }
 
-    document.addEventListener('click', function() {
-      if (audioCtx && audioCtx.state === 'suspended' && state.isPlaying) audioCtx.resume();
+    function recoverPlayback(event) {
+      const gesture = event && (event.type === 'click' || event.type === 'touchstart');
+      if (state.isPlaying) startSequencer(gesture);
+    }
+    document.addEventListener('click', recoverPlayback);
+    document.addEventListener('touchstart', recoverPlayback, { passive: true });
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) recoverPlayback();
     });
-    document.addEventListener('touchstart', function() {
-      if (audioCtx && audioCtx.state === 'suspended' && state.isPlaying) audioCtx.resume();
-    });
+    window.addEventListener('focus', recoverPlayback);
+    window.addEventListener('pageshow', recoverPlayback);
 
     function setupCognitiveSynth() {
       if (!audioCtx) return;
@@ -448,9 +494,11 @@
     };
 
     function playKick(time) {
-      if (!reserveVoice(0.32)) return;
+      const voice = reserveVoice(.32);
+      if (!voice) return;
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
+      trackVoice(voice, [osc], [gain]);
       osc.type = 'sine';
 
       const isLofi = state.genre === 'AMBIENT_LOFI';
@@ -469,7 +517,8 @@
     }
 
     function playHiHat(time, open = false) {
-      if (!reserveVoice(open ? 0.16 : 0.08)) return;
+      const voice = reserveVoice(open ? .16 : .08);
+      if (!voice) return;
       const isLofi = state.genre === 'AMBIENT_LOFI';
       const bufferSize = audioCtx.sampleRate * (open ? 0.12 : 0.04);
       const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
@@ -485,6 +534,7 @@
       filter.frequency.value = isLofi ? 4500 : 7500;
 
       const gain = audioCtx.createGain();
+      trackVoice(voice, [whiteNoise], [filter, gain]);
       gain.gain.setValueAtTime(open ? 0.075 : 0.05, time);
       gain.gain.exponentialRampToValueAtTime(0.001, time + (open ? 0.12 : 0.04));
 
@@ -496,9 +546,11 @@
     }
 
     function playSnare(time) {
-      if (!reserveVoice(0.16)) return;
+      const voice = reserveVoice(.16);
+      if (!voice) return;
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
+      trackVoice(voice, [osc], [gain]);
       osc.type = state.waveShape === 'sine' ? 'sine' : (state.genre === 'CYBERPUNK_TRANCE' ? 'sawtooth' : 'triangle');
       osc.frequency.setValueAtTime(170, time);
       osc.frequency.exponentialRampToValueAtTime(75, time + 0.09);
@@ -514,13 +566,15 @@
     }
 
     function playGhostSnare(time, level = .42) {
-      if (!reserveVoice(.1)) return;
+      const voice = reserveVoice(.1);
+      if (!voice) return;
       const buffer = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * .055), audioCtx.sampleRate);
       const data = buffer.getChannelData(0);
       for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 2);
       const source = audioCtx.createBufferSource();
       const filter = audioCtx.createBiquadFilter();
       const gain = audioCtx.createGain();
+      trackVoice(voice, [source], [filter, gain]);
       source.buffer = buffer;
       filter.type = 'bandpass';
       filter.frequency.value = 1850;
@@ -587,11 +641,13 @@
     }
 
     function playBass(time, noteHz, duration = 0.18) {
-      if (!reserveVoice(duration + .05)) return;
+      const voice = reserveVoice(duration + .05);
+      if (!voice) return;
       const osc = audioCtx.createOscillator();
       const subOsc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       const bassFilter = audioCtx.createBiquadFilter();
+      trackVoice(voice, [osc, subOsc], [bassFilter, gain]);
 
       if (state.waveShape) {
         osc.type = state.waveShape;
@@ -633,11 +689,13 @@
     }
 
     function playMysticalSub(time, noteHz, duration = .32, interval = 1.5) {
-      if (!reserveVoice(duration + .08)) return;
+      const voice = reserveVoice(duration + .08);
+      if (!voice) return;
       const fundamental = audioCtx.createOscillator();
       const overtone = audioCtx.createOscillator();
       const filter = audioCtx.createBiquadFilter();
       const gain = audioCtx.createGain();
+      trackVoice(voice, [fundamental, overtone], [filter, gain]);
       fundamental.type = 'sine';
       overtone.type = 'triangle';
       fundamental.frequency.setValueAtTime(Math.max(28, noteHz), time);
@@ -666,9 +724,11 @@
       const isCrystal = state.spectrumMode === 'CRYSTAL';
       const stepDuration = 15 / Math.max(60, state.bpm);
       const noteDuration = isCrystal ? Math.min(duration, .032, stepDuration * .4) : duration;
-      if (!reserveVoice(noteDuration + .05)) return;
+      const voice = reserveVoice(noteDuration + .05);
+      if (!voice) return;
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
+      trackVoice(voice, [osc], [gain]);
 
       if (isCrystal) {
         // A clear fundamental with aligned upper harmonics, normalized to keep peaks bounded.
@@ -707,7 +767,6 @@
         gain.gain.linearRampToValueAtTime(sustain, time + attack);
         gain.gain.setValueAtTime(sustain, time + noteDuration - release);
         gain.gain.linearRampToValueAtTime(0, time + noteDuration);
-        osc.onended = () => { osc.disconnect(); gain.disconnect(); };
       } else {
         gain.gain.setValueAtTime(Math.min(0.22, level), time);
         gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
@@ -979,38 +1038,101 @@
 
     let lastScheduledBpm = 0;
 
-    function startSequencer() {
-      if (!audioCtx) return;
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-      }
-      if (masterGain) {
-        masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
-        masterGain.gain.setValueAtTime(0.28, audioCtx.currentTime);
-      }
+    function updatePlaybackStatus(message) {
+      const readout = document.getElementById('pulse-readout');
+      if (!readout) return;
+      const active = audioCtx && audioCtx.state === 'running' && sequencerTimer !== null;
+      readout.textContent = `${state.bpm} BPM · ${!state.isPlaying ? 'dormant' : (message || (active ? 'organism active' : 'tap a biodynamic to resume'))}`;
+    }
 
-      // Only restart timer if BPM changed or timer isn't active
-      if (!sequencerTimer || lastScheduledBpm !== state.bpm) {
-        if (sequencerTimer) clearInterval(sequencerTimer);
+    function clearSequencerClock() {
+      if (sequencerTimer !== null) clearInterval(sequencerTimer);
+      sequencerTimer = null;
+      lastScheduledBpm = 0;
+    }
+
+    function runSequencer() {
+      if (!state.isPlaying || !audioCtx || audioCtx.state !== 'running' || audioStopRequest) return;
+      masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+      masterGain.gain.setValueAtTime(.28, audioCtx.currentTime);
+      if (sequencerTimer === null || lastScheduledBpm !== state.bpm) {
+        clearSequencerClock();
         lastScheduledBpm = state.bpm;
-        const intervalMs = (60.0 / Math.max(60, state.bpm) / 4.0) * 1000.0;
+        const intervalMs = 15000 / Math.max(60, state.bpm);
         sequencerTimer = setInterval(stepSequencer, intervalMs);
+        stepSequencer();
+      }
+      updatePlaybackStatus();
+    }
+
+    function startSequencer(userGesture = false) {
+      if (!state.isPlaying) return Promise.resolve(false);
+      try {
+        initAudio();
+        const context = audioCtx;
+        if (context.state === 'running' && !audioStopRequest) {
+          runSequencer();
+          return Promise.resolve(true);
+        }
+        // Some browsers leave a blocked resume pending; a fresh gesture must be able to retry it.
+        if (!userGesture && audioStartRequest && audioStartRequest.context === context) return audioStartRequest.promise;
+
+        const epoch = playbackEpoch;
+        const pendingStop = audioStopRequest;
+        const request = { context, promise: null };
+        // Invoke resume inside the user gesture, even if a previous suspension is still settling.
+        const resumed = context.resume();
+        audioStartRequest = request;
+        updatePlaybackStatus('starting audio');
+        request.promise = Promise.resolve(resumed).then(async () => {
+          if (pendingStop) await pendingStop.promise;
+          // A late resume must never override a newer explicit pause.
+          if (context === audioCtx && !state.isPlaying) {
+            if (context.state === 'running') stopSequencer();
+            return false;
+          }
+          if (context !== audioCtx || epoch !== playbackEpoch || !state.isPlaying) return false;
+          if (context.state !== 'running') await context.resume();
+          if (context !== audioCtx || epoch !== playbackEpoch || !state.isPlaying) return false;
+          runSequencer();
+          return context.state === 'running';
+        }).catch(error => {
+          if (context === audioCtx && epoch === playbackEpoch && state.isPlaying) {
+            console.warn('Audio resume needs another user gesture:', error);
+            updatePlaybackStatus('tap a biodynamic to resume');
+          }
+          return false;
+        }).finally(() => {
+          if (audioStartRequest === request) audioStartRequest = null;
+        });
+        return request.promise;
+      } catch (error) {
+        console.error('Unable to start audio:', error);
+        updatePlaybackStatus('tap a biodynamic to resume');
+        return Promise.resolve(false);
       }
     }
 
     function stopSequencer() {
-      if (sequencerTimer) {
-        clearInterval(sequencerTimer);
-        sequencerTimer = null;
+      playbackEpoch++;
+      audioStartRequest = null;
+      clearSequencerClock();
+      clearSynthVoices();
+      const context = audioCtx;
+      if (context && context.state !== 'closed') {
+        masterGain.gain.cancelScheduledValues(context.currentTime);
+        masterGain.gain.setValueAtTime(.0001, context.currentTime);
+        const request = { context, promise: null };
+        audioStopRequest = request;
+        request.promise = context.suspend().catch(error => {
+          console.warn('Audio suspension was interrupted:', error);
+        }).finally(() => {
+          if (audioStopRequest !== request) return;
+          audioStopRequest = null;
+          if (context === audioCtx && state.isPlaying && !audioStartRequest) startSequencer();
+        });
       }
-      lastScheduledBpm = 0;
-      if (masterGain && audioCtx) {
-        masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
-        masterGain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
-      }
-      if (audioCtx && audioCtx.state === 'running') {
-        audioCtx.suspend();
-      }
+      updatePlaybackStatus();
     }
 
     // --- MUSICGEN & TRACK EXTENSION BRIDGES ---
@@ -1095,22 +1217,8 @@
       }
     };
 
-    // --- CONTROLS DISPATCHER FROM KOTLIN ---
-    window.setEngineState = function(jsonStr) {
-      try {
-        const data = JSON.parse(jsonStr);
-        Object.assign(state, data);
-
-        document.getElementById('overlay').innerText = `NOOAURIA | GENRE: ${state.genre} | BPM: ${state.bpm} | SEC: ${state.activeSection}`;
-
-        if (state.isPlaying) {
-          initAudio();
-          if (audioCtx.state === 'suspended') audioCtx.resume();
-          startSequencer();
-        } else {
-          stopSequencer();
-        }
-
+    function applyAudioParameters() {
+        if (!audioCtx || audioCtx.state === 'closed') return;
         if (filterNode) {
           filterNode.frequency.value = 200 + (state.filterCutoff * 18000);
           filterNode.Q.value = Math.min(12, 0.5 + (state.resonance || 0) * 14);
@@ -1140,6 +1248,18 @@
           isochronicGain.gain.setTargetAtTime(isoLevel, audioCtx.currentTime, 0.025);
           isochronicDepth.gain.setTargetAtTime(isoLevel, audioCtx.currentTime, 0.025);
         }
+    }
+
+    // --- CONTROLS DISPATCHER FROM KOTLIN ---
+    window.setEngineState = function(jsonStr) {
+      try {
+        const data = JSON.parse(jsonStr);
+        Object.assign(state, data);
+        document.getElementById('overlay').innerText = `NOOAURIA | GENRE: ${state.genre} | BPM: ${state.bpm} | SEC: ${state.activeSection}`;
+        if (state.isPlaying) initAudio();
+        applyAudioParameters();
+        if (state.isPlaying) startSequencer();
+        else stopSequencer();
       } catch(e) {
         console.error("Error setting state:", e);
       }
@@ -1237,9 +1357,6 @@
     mutationControl.addEventListener('input', event => { state.mutationDepth = Number(event.target.value) / 100; });
     function engageResonance() {
       state.isPlaying = true;
-      initAudio();
-      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-      startSequencer();
       syncWebControls();
     }
     function markCustomEcology() {
@@ -1274,6 +1391,8 @@
     solToggle.addEventListener('click', () => { state.solfeggioEnabled = !state.solfeggioEnabled; engageResonance(); });
     document.querySelectorAll('[data-lifeway]').forEach(button => {
       button.addEventListener('click', () => {
+        clearSequencerClock();
+        clearSynthVoices();
         const profile = lifewayProfiles[button.dataset.lifeway];
         document.querySelectorAll('[data-lifeway]').forEach(item => item.classList.remove('active'));
         button.classList.add('active');
@@ -1321,6 +1440,8 @@
     });
     document.querySelectorAll('[data-amplifier]').forEach(button => {
       button.addEventListener('click', () => {
+        clearSequencerClock();
+        clearSynthVoices();
         const profile = amplifierProfiles[button.dataset.amplifier];
         document.querySelectorAll('[data-amplifier]').forEach(item => item.classList.remove('active'));
         button.classList.add('active');

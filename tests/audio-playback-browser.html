@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Nooauria playback regression</title>
+<style>
+  body { background:#101914; color:#d9f7dc; font:14px system-ui; margin:20px; }
+  button { padding:12px; margin-right:12px; }
+  pre { white-space:pre-wrap; max-height:260px; overflow:auto; }
+  iframe { width:100%; height:620px; border:1px solid #4a6850; }
+</style>
+<h1>Playback switching regression</h1>
+<p>Serve the repository locally and open this page. The checks use the actual Web Audio engine and measure its post-limiter signal. This test file is outside the Firebase hosting directory.</p>
+<button id="run" disabled>Run playback stress test</button>
+<button id="close" disabled>Close context to test recovery</button>
+<pre id="report" role="status">Loading current app…</pre>
+<iframe id="app" title="Nooauria test instance"></iframe>
+<script>
+  const frame = document.getElementById('app');
+  const report = document.getElementById('report');
+  const run = document.getElementById('run');
+  const close = document.getElementById('close');
+  function installProbe() {
+    let meter, meterContext;
+    window.playbackProbe = () => {
+      if (!audioCtx) return { state:'missing', rms:0 };
+      if (meterContext !== audioCtx) {
+        if (meter) meter.disconnect();
+        meterContext = audioCtx;
+        meter = audioCtx.createAnalyser();
+        meter.fftSize = 1024;
+        limiterNode.connect(meter);
+      }
+      const samples = new Float32Array(meter.fftSize);
+      meter.getFloatTimeDomainData(samples);
+      return { state:audioCtx.state, step:stepIndex, voices:activeVoices.size,
+        finite:samples.every(Number.isFinite),
+        rms:Math.sqrt(samples.reduce((sum,x) => sum + x*x, 0) / samples.length) };
+    };
+    window.closeTestContext = () => audioCtx ? audioCtx.close() : Promise.resolve();
+  }
+  function log(text) { report.textContent += text + '\n'; }
+  const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+  async function measure(label) {
+    let maxRms = 0;
+    for (let i=0;i<6;i++) {
+      await wait(30);
+      const p = frame.contentWindow.playbackProbe();
+      if (!p.finite || p.state !== 'running' || p.voices > 22 || p.step < 1) throw new Error(label + ': ' + JSON.stringify(p));
+      maxRms = Math.max(maxRms, p.rms);
+    }
+    if (maxRms < .0001) throw new Error(label + ': silent output');
+    return maxRms;
+  }
+  function muteContinuousTones() {
+    for (const id of ['binaural-toggle','sol-toggle','iso-toggle']) {
+      const button = frame.contentDocument.getElementById(id);
+      if (button.classList.contains('active')) button.click();
+    }
+  }
+  run.onclick = async () => {
+    run.disabled = true; close.disabled = true; report.textContent = '';
+    try {
+      const doc = frame.contentDocument;
+      const modes = [...doc.querySelectorAll('[data-amplifier]')];
+      const spectra = [...doc.querySelectorAll('[data-spectrum]')];
+      let checked = 0, minSignal = Infinity;
+      for (let round=0;round<4;round++) {
+        for (let i=0;i<modes.length;i++) {
+          spectra[round].click(); modes[i].click(); muteContinuousTones();
+          if (i % 3 === 0) { doc.getElementById('awaken').click(); modes[i].click(); }
+          minSignal = Math.min(minSignal, await measure(modes[i].dataset.amplifier)); checked++;
+        }
+        log(`PASS: all ${modes.length} biodynamics in ${spectra[round].dataset.spectrum}`);
+      }
+      for (const lifeway of doc.querySelectorAll('[data-lifeway]')) {
+        lifeway.click(); muteContinuousTones();
+        minSignal = Math.min(minSignal, await measure(lifeway.dataset.lifeway)); checked++;
+      }
+      log('PASS: all 7 lifeways');
+      doc.getElementById('awaken').click(); await wait(60);
+      const paused = frame.contentWindow.playbackProbe();
+      if (paused.state !== 'suspended' || paused.voices !== 0) throw new Error('Pause did not release voices');
+      log(`PASS: ${checked} audible selections, rapid rest/start, and final pause. Minimum measured RMS ${minSignal.toFixed(5)}.`);
+    } catch (error) { log('FAIL: ' + error.message); }
+    finally { run.disabled = false; close.disabled = false; }
+  };
+  close.onclick = async () => {
+    await frame.contentWindow.closeTestContext();
+    log('Context closed. Run the stress test again to verify reconstruction.');
+  };
+  fetch('../app/src/main/assets/web/index.html').then(r => {
+    if (!r.ok) throw new Error('App load failed'); return r.text();
+  }).then(html => {
+    frame.onload = () => { run.disabled = false; close.disabled = false; report.textContent = 'Ready.\n'; };
+    frame.srcdoc = html.replace('</body>', '<script>(' + installProbe.toString() + ')();<' + '/script></body>');
+  }).catch(error => { report.textContent = error.message; });
+</script>
+</html>
