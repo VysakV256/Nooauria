@@ -20,6 +20,9 @@
     #brand strong { display:block; font: 800 clamp(22px,3vw,36px)/1 sans-serif; letter-spacing:.2em; }
     #brand span { display:block; margin-top:8px; color:#93a89b; font-size:10px; letter-spacing:.15em; text-transform:uppercase; }
     #bio-mark { display:inline-block; width:9px; height:9px; margin-right:8px; border-radius:50%; background:#b8f35a; box-shadow:0 0 18px #b8f35a; }
+    #maximize-shader { position:absolute; top:58px; right:28px; z-index:4; padding:10px 13px; color:#67e8c2; background:rgba(16,29,23,.72); border:1px solid rgba(103,232,194,.28); border-radius:16px 7px 16px 7px; backdrop-filter:blur(12px); }
+    body.shader-maximized #control-dock, body.shader-maximized #brand, body.shader-maximized #overlay { opacity:0; pointer-events:none; }
+    body.shader-maximized #maximize-shader { top:18px; right:18px; opacity:.55; }
     #control-dock {
       position:absolute; left:50%; bottom:24px; transform:translateX(-50%); width:min(960px,calc(100% - 32px));
       padding:18px; color:#f1f3dc; background:rgba(16,29,23,.86); border:1px solid rgba(103,232,194,.22);
@@ -72,7 +75,7 @@
     .tone-toggles button { padding:11px 12px; color:#93a89b; background:rgba(255,255,255,.025); border:1px solid rgba(147,168,155,.2); border-radius:14px 7px 14px 7px; }
     .tone-toggles button.active { color:#07100c; background:#67e8c2; border-color:#67e8c2; }
     @media(max-width:680px){
-      #brand{top:20px;left:20px} #overlay{top:72px;left:20px;right:auto}
+      #brand{top:20px;left:20px} #overlay{top:72px;left:20px;right:auto} #maximize-shader{top:96px;right:20px}
       #control-dock{bottom:10px;padding:14px;max-height:76vh;overflow:auto}.controls{grid-template-columns:1fr auto}.species{grid-column:1/-1;grid-row:1}.tempo{display:none}#awaken{grid-column:1/-1}.spectral-lab{grid-template-columns:1fr 1fr}.spectrum-types{grid-column:1/-1}.spectral-lab label:nth-of-type(3){display:none}#evolve{align-self:stretch}.amplifier-meta{align-items:start}.amplifier-meta p{max-width:260px}.frequency-grid{grid-template-columns:1fr 1fr}.tone-toggles{grid-column:1/-1}.frequency-grid label:nth-of-type(3){grid-column:1/-1}
     }
   </style>
@@ -81,6 +84,7 @@
   <canvas id="canvas"></canvas>
   <div id="brand"><strong><i id="bio-mark"></i>NOOAURIA</strong><span>living audio habitat · web organism 01</span></div>
   <div id="overlay">NOOAURIA · HABITAT ONLINE</div>
+  <button id="maximize-shader" type="button" aria-label="Maximize shader">MAXIMIZE SHADER</button>
   <section id="control-dock" aria-label="Nooauria habitat controls">
     <div class="dock-head"><span class="eyebrow">Choose an evolutionary state</span><span class="pulse" id="pulse-readout">128 BPM · dormant</span></div>
     <div class="amplifier-meta">
@@ -108,7 +112,7 @@
         <button type="button" data-geometry="AURORA_WAVES">AURORA ALGAE</button>
         <button type="button" data-geometry="NEON_GRID">ROOT GRID</button>
       </div>
-      <label class="tempo">Metabolic tempo <input id="tempo" type="range" min="80" max="160" value="128" aria-label="Metabolic tempo"></label>
+      <label class="tempo">Metabolic tempo <input id="tempo" type="range" min="80" max="190" value="174" aria-label="Metabolic tempo"></label>
     </div>
     <div class="spectral-lab" aria-label="Spectral laboratory">
       <div class="spectrum-types">
@@ -132,7 +136,7 @@
         <button type="button" data-lifeway="MYCELIAL_COMMUNION">MYCELIAL COMMUNION<span>distributed listening · fungal memory</span></button>
         <button type="button" data-lifeway="CHLOROPHYLL_MIND">CHLOROPHYLL MIND<span>verdant radiance · solar abundance</span></button>
         <button type="button" data-lifeway="CORAL_INTELLIGENCE">CORAL INTELLIGENCE<span>collective sensing · tidal cognition</span></button>
-        <button type="button" data-lifeway="NOOSPHERE_BLOOM">NOOSPHERE BLOOM<span>shared imagination · radiant connection</span></button>
+        <button type="button" data-lifeway="NOOSPHERE_BLOOM">NOOSPHERE BLOOM<span>bright harmonic canopy · radiant connection</span></button>
         <button type="button" data-lifeway="SYMBIOTIC_DREAMING">SYMBIOTIC DREAMING<span>soft boundaries · more-than-human sleep</span></button>
         <button type="button" data-lifeway="NEURAL_REWILDING">NEURAL REWILDING<span>wild signal · ecstatic biodiversity</span></button>
         <button type="button" data-lifeway="POSTHUMAN_STILLNESS">POSTHUMAN STILLNESS<span>slow intelligence · machinic calm</span></button>
@@ -162,12 +166,14 @@
   <script>
     // --- AUDIO CONTEXT SETUP ---
     let audioCtx = null;
+    let crystalLeadWave = null;
     let masterGain = null;
     let filterNode = null;
     let eqLowNode = null;
     let eqMidNode = null;
     let eqHighNode = null;
     let delayNode = null;
+    let delayReturnGain = null;
     let delayFeedback = null;
     let analyserNode = null;
     let activeVoiceCount = 0;
@@ -194,6 +200,8 @@
 
     let solfeggioOsc = null;
     let solfeggioGain = null;
+    let solfeggioHarmonicOsc = null;
+    let solfeggioHarmonicGain = null;
 
     let brownNoiseNode = null;
     let brownNoiseGain = null;
@@ -242,6 +250,8 @@
       solfeggioEnabled: true,
       solfeggioHz: 528,
       solfeggioVol: 0.35,
+      harmonicRatio: 1.5,
+      harmonicVol: 0.0,
       // Visualizer State
       geometry: 'COSMIC_TUNNEL',
       primaryColor: '#B8F35A',
@@ -261,7 +271,9 @@
       multiplicity: 0.68,
       coherence: 0.56,
       exursion: 0.78,
-      generation: 0
+      generation: 0,
+      lifewayMode: null,
+      biodynamicShader: true
     };
 
     let stepIndex = 0;
@@ -308,6 +320,8 @@
 
       delayNode = audioCtx.createDelay();
       delayNode.delayTime.value = 0.25;
+      delayReturnGain = audioCtx.createGain();
+      delayReturnGain.gain.value = state.spectrumMode === 'CRYSTAL' ? 0 : 1;
       delayFeedback = audioCtx.createGain();
       delayFeedback.gain.value = 0.15;
 
@@ -332,7 +346,8 @@
       limiterNode.connect(audioCtx.destination);
 
       eqHighNode.connect(delayNode);
-      delayNode.connect(masterGain);
+      delayNode.connect(delayReturnGain);
+      delayReturnGain.connect(masterGain);
 
       setupCognitiveSynth();
     }
@@ -386,6 +401,15 @@
       solfeggioOsc.connect(solfeggioGain);
       solfeggioGain.connect(analyserNode);
       solfeggioOsc.start();
+
+      solfeggioHarmonicGain = audioCtx.createGain();
+      solfeggioHarmonicGain.gain.value = state.solfeggioEnabled ? state.harmonicVol : 0.0;
+      solfeggioHarmonicOsc = audioCtx.createOscillator();
+      solfeggioHarmonicOsc.type = 'sine';
+      solfeggioHarmonicOsc.frequency.value = state.solfeggioHz * state.harmonicRatio;
+      solfeggioHarmonicOsc.connect(solfeggioHarmonicGain);
+      solfeggioHarmonicGain.connect(analyserNode);
+      solfeggioHarmonicOsc.start();
 
       isochronicGain = audioCtx.createGain();
       isochronicGain.gain.value = state.isochronicEnabled ? state.isochronicVol * 0.075 : 0.0;
@@ -489,6 +513,79 @@
       playHiHat(time, true);
     }
 
+    function playGhostSnare(time, level = .42) {
+      if (!reserveVoice(.1)) return;
+      const buffer = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * .055), audioCtx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 2);
+      const source = audioCtx.createBufferSource();
+      const filter = audioCtx.createBiquadFilter();
+      const gain = audioCtx.createGain();
+      source.buffer = buffer;
+      filter.type = 'bandpass';
+      filter.frequency.value = 1850;
+      filter.Q.value = 1.4;
+      gain.gain.setValueAtTime(.065 * level, time);
+      gain.gain.exponentialRampToValueAtTime(.001, time + .055);
+      source.connect(filter);
+      filter.connect(gain);
+      gain.connect(masterGain);
+      source.start(time);
+      source.stop(time + .06);
+    }
+
+    // One D&B pulse, many biodynamic nervous systems. Each mode reshapes the break.
+    function playBiodynamicDnB(mode, step, scale, now) {
+      const generation = Math.floor(stepIndex / 16);
+      const root = scale[(generation * 2) % scale.length];
+      const kickSteps = {
+        NOETIC_SURGE:[0,3,8,10], POLYATTENTION:[0,6,8,11,14], EXURSIVE_FLOW:[0,5,8,13],
+        HYPERFOCUS_LENS:[0,7,8,14], DIVERGENCE_ENGINE:[0,3,6,8,11,14], PHASEWEAVE:[0,5,8,11],
+        AETHERFLUX:[0,8,14], METAMORPHIC_PULSE:[0,3,7,8,13], VIRIDION:[0,6,8,14],
+        HYPERASTRA:[0,7,8,10,15], NOETIC_HYPERFLUX:[0,3,8,11,14]
+      };
+      const bassSteps = {
+        NOETIC_SURGE:[1,4,6,9,12,14], POLYATTENTION:[1,3,7,9,12,15], EXURSIVE_FLOW:[1,4,7,9,12,15],
+        HYPERFOCUS_LENS:[1,6,9,13], DIVERGENCE_ENGINE:[1,4,7,9,12,15], PHASEWEAVE:[1,4,6,9,12,14],
+        AETHERFLUX:[1,7,9,15], METAMORPHIC_PULSE:[1,4,6,9,11,15], VIRIDION:[1,4,7,9,12,15],
+        HYPERASTRA:[1,4,6,9,12,14], NOETIC_HYPERFLUX:[1,4,7,9,12,15]
+      };
+      const kicks = kickSteps[mode] || kickSteps.NOETIC_HYPERFLUX;
+      const basses = bassSteps[mode] || bassSteps.NOETIC_HYPERFLUX;
+      if (kicks.includes(step)) playKick(now);
+      if (step === 4 || step === 12) playSnare(now);
+      if ([2,7,10,15].includes(step)) playGhostSnare(now, mode === 'HYPERFOCUS_LENS' ? .28 : .48);
+      playHiHat(now, step === 7 || step === 15);
+      if (step % 2 === 1 && ['NOETIC_SURGE','POLYATTENTION','METAMORPHIC_PULSE'].includes(mode)) playHiHat(now, false);
+      if (state.activeSection !== 'INTRO' && basses.includes(step)) {
+        const motion = mode === 'HYPERFOCUS_LENS' ? 0 : (step + generation * (mode === 'DIVERGENCE_ENGINE' ? 3 : 1)) % Math.min(7, scale.length);
+        const depth = mode === 'AETHERFLUX' ? .25 : .5;
+        playBass(now, (scale[motion] || root) * depth, mode === 'AETHERFLUX' ? .28 : .14);
+      }
+      if (mode === 'NOETIC_SURGE') {
+        // Mystical sub currents anchor a break that mutates instead of looping cleanly.
+        const mutationKick = (generation * 5 + 5) % 16;
+        const reverseKick = 15 - ((generation * 3 + 2) % 16);
+        if (step === mutationKick || (generation % 3 === 2 && step === reverseKick)) playKick(now);
+        if ([1,5,7,11,13,15].includes(step) && (step + generation) % 3 !== 0) {
+          playGhostSnare(now, .55 + ((step + generation) % 4) * .1);
+        }
+        if (step >= 12 || generation % 4 === 3) playHiHat(now, step % 2 === 0);
+        if (state.activeSection !== 'INTRO' && (step === 0 || step === 7 || step === 11 || step === 15)) {
+          const mysticPath = [0, 5, 2, 8, 3, 10, 1];
+          const subRoot = scale[mysticPath[(generation + step) % mysticPath.length] % scale.length] * .25;
+          playMysticalSub(now, subRoot, step === 15 ? .13 : .3, [1.5, 1.333, 1.618, 2][generation % 4]);
+        }
+        const fillGate = 10 + (generation % 4);
+        if (step >= fillGate) {
+          const fracture = (step * 7 + generation * 11) % 5;
+          if (fracture !== 2) playGhostSnare(now, .4 + fracture * .12);
+          if (fracture === 0 || fracture === 4) playHiHat(now, true);
+          if (step === 15 && generation % 2) playKick(now);
+        }
+      }
+    }
+
     function playBass(time, noteHz, duration = 0.18) {
       if (!reserveVoice(duration + .05)) return;
       const osc = audioCtx.createOscillator();
@@ -535,12 +632,54 @@
       subOsc.stop(time + duration);
     }
 
-    function playSynthLead(time, noteHz, duration = 0.22) {
-      if (!reserveVoice(duration + .05)) return;
+    function playMysticalSub(time, noteHz, duration = .32, interval = 1.5) {
+      if (!reserveVoice(duration + .08)) return;
+      const fundamental = audioCtx.createOscillator();
+      const overtone = audioCtx.createOscillator();
+      const filter = audioCtx.createBiquadFilter();
+      const gain = audioCtx.createGain();
+      fundamental.type = 'sine';
+      overtone.type = 'triangle';
+      fundamental.frequency.setValueAtTime(Math.max(28, noteHz), time);
+      fundamental.frequency.exponentialRampToValueAtTime(Math.max(26, noteHz * .94), time + duration);
+      overtone.frequency.setValueAtTime(Math.max(42, noteHz * interval), time);
+      overtone.detune.setValueAtTime(-9, time);
+      overtone.detune.linearRampToValueAtTime(9, time + duration);
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(260 + state.filterCutoff * 240, time);
+      filter.frequency.exponentialRampToValueAtTime(105, time + duration);
+      filter.Q.value = 2.2 + state.resonance * 3;
+      gain.gain.setValueAtTime(.001, time);
+      gain.gain.exponentialRampToValueAtTime(.19, time + .018);
+      gain.gain.exponentialRampToValueAtTime(.001, time + duration);
+      fundamental.connect(filter);
+      overtone.connect(filter);
+      filter.connect(gain);
+      gain.connect(masterGain);
+      fundamental.start(time);
+      overtone.start(time);
+      fundamental.stop(time + duration);
+      overtone.stop(time + duration);
+    }
+
+    function playSynthLead(time, noteHz, duration = 0.22, level = 0.14) {
+      const isCrystal = state.spectrumMode === 'CRYSTAL';
+      const stepDuration = 15 / Math.max(60, state.bpm);
+      const noteDuration = isCrystal ? Math.min(duration, .032, stepDuration * .4) : duration;
+      if (!reserveVoice(noteDuration + .05)) return;
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
 
-      if (state.waveShape) {
+      if (isCrystal) {
+        // A clear fundamental with aligned upper harmonics, normalized to keep peaks bounded.
+        if (!crystalLeadWave) {
+          crystalLeadWave = audioCtx.createPeriodicWave(
+            new Float32Array(9),
+            new Float32Array([0, 1, .34, .18, .18, .045, .07, .015, .07])
+          );
+        }
+        osc.setPeriodicWave(crystalLeadWave);
+      } else if (state.waveShape) {
         osc.type = state.waveShape;
       } else if (state.genre === 'AMBIENT_LOFI') {
         osc.type = 'sine';
@@ -550,15 +689,33 @@
         osc.type = 'sawtooth';
       }
 
-      osc.frequency.setValueAtTime(noteHz, time);
+      let pitch = noteHz;
+      if (isCrystal) {
+        // Fold by octaves into a clear high register while retaining the melodic intervals.
+        pitch *= 4;
+        while (pitch < 880) pitch *= 2;
+        while (pitch > Math.min(4400, audioCtx.sampleRate * .125)) pitch /= 2;
+      }
+      osc.frequency.setValueAtTime(pitch, time);
 
-      gain.gain.setValueAtTime(0.14, time);
-      gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
-
+      if (isCrystal) {
+        // Dry staccato gate: at most 32 ms, leaving silence between successive sixteenth-note attacks.
+        const sustain = Math.max(.001, Math.min(.16, level * .72));
+        const attack = Math.min(.0006, noteDuration * .03);
+        const release = Math.min(.002, noteDuration * .12);
+        gain.gain.setValueAtTime(0, time);
+        gain.gain.linearRampToValueAtTime(sustain, time + attack);
+        gain.gain.setValueAtTime(sustain, time + noteDuration - release);
+        gain.gain.linearRampToValueAtTime(0, time + noteDuration);
+        osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+      } else {
+        gain.gain.setValueAtTime(Math.min(0.22, level), time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+      }
       osc.connect(gain);
       gain.connect(masterGain);
       osc.start(time);
-      osc.stop(time + duration);
+      osc.stop(time + noteDuration);
     }
 
     // Each amplifier adds a distinct evolutionary process above the genre ecology.
@@ -570,9 +727,32 @@
       if (step === 0) document.getElementById('generation-readout').textContent = `generation ${String(generation).padStart(3,'0')}`;
 
       switch (mode) {
-        case 'NOETIC_SURGE': { // descendants progressively accumulate momentum
+        case 'NOETIC_SURGE': { // four interacting sonic fields accumulate momentum
           const density = Math.min(4, 1 + Math.floor((generation % 12) / 3));
-          if (step % Math.max(1, 8 / density) === 0) playSynthLead(now, branch * (1 + density * .12), .09 + density * .02);
+          // Infinite perspective currents: a looping bass trajectory continually changes depth.
+          if (step % 2 === 0) {
+            const perspectiveIndex = (step / 2 + generation * 2) % scale.length;
+            const octaveDepth = [0.5, 0.75, 1, 0.5][(step / 2 + generation) % 4];
+            playBass(now, scale[perspectiveIndex] * octaveDepth, .1 + density * .018);
+          }
+          // Exursive energy fields branch away from the main line without exact return.
+          if (step % 3 === generation % 3) {
+            const exursiveIndex = (step * step + generation * 5) % scale.length;
+            playSynthLead(now, scale[exursiveIndex] * (generation % 2 ? 1.5 : 2), .11 + density * .018, .145);
+          }
+          // Chaotic spark organisms appear as short, bright autonomous micro-phrases.
+          if (((step * 7 + generation * 11) % 13) < 4) {
+            const sparkNote = scale[(step * 5 + generation * 3) % scale.length] * (2.2 + (step % 3) * .35);
+            playSynthLead(now, sparkNote, .045 + (step % 2) * .025, .105);
+          }
+          // Tessellated pulse arcs: repeating triadic cells propagate every quarter-cycle.
+          if (step % 4 === 0) {
+            const cellRoot = scale[(generation + step / 4) % scale.length];
+            playSynthLead(now, cellRoot, .18, .15);
+            playSynthLead(now, cellRoot * 1.25, .16, .13);
+            playSynthLead(now, cellRoot * 1.5, .14, .12);
+          }
+          if (step % Math.max(1, 8 / density) === 0) playSynthLead(now, branch * (1 + density * .12), .09 + density * .02, .14);
           break;
         }
         case 'POLYATTENTION': { // autonomous agents occupy separate trajectories
@@ -591,10 +771,15 @@
           break;
         }
         case 'DIVERGENCE_ENGINE': { // controlled bifurcations spread outward
+          const beacon = state.solfeggioHz / Math.pow(2, Math.max(0, Math.ceil(Math.log2(state.solfeggioHz / 420))));
+          const carrier = state.binauralCarrierHz;
+          const morph = (source, attractor, amount) => source * (1 - amount) + attractor * amount;
           if (step % 4 === 0) {
-            playSynthLead(now, root * .75, .2);
-            playSynthLead(now, root * (1.25 + (generation % 5) * .08), .2);
+            const symbioticAmount = .28 + (generation % 5) * .07;
+            playSynthLead(now, morph(root * .75, carrier, symbioticAmount), .24, .19);
+            playSynthLead(now, morph(root * (1.25 + (generation % 5) * .08), beacon, symbioticAmount), .24, .19);
           }
+          if (step === 6 || step === 14) playSynthLead(now, morph(branch, (carrier + beacon) / 2, .52), .2, .18);
           break;
         }
         case 'PHASEWEAVE': { // independent cycles discover transient synchrony
@@ -636,15 +821,78 @@
       }
     }
 
+    // Biofrequency Beings add their own bounded, fast-evolving musical ecology.
+    function evolveBiofrequencyBeing(mode, step, scale, now) {
+      if (!mode) return;
+      const generation = Math.floor(stepIndex / 16);
+      const note = index => scale[((index % scale.length) + scale.length) % scale.length];
+      switch (mode) {
+        case 'MYCELIAL_COMMUNION': {
+          const path = [0, 3, 1, 5, 2, 7];
+          if ([0,3,7,10,14].includes(step)) playSynthLead(now, note(path[(step + generation) % path.length]) * (step % 2 ? 1.5 : 1), .14);
+          if (step === 6 || step === 13) playBass(now, note(generation + step) * .5, .22);
+          break;
+        }
+        case 'CHLOROPHYLL_MIND': {
+          const climb = [0,2,4,5,7,9,7,11];
+          if (step % 2 === 0) playSynthLead(now, note(climb[(step / 2 + generation) % climb.length]) * 1.5, .12);
+          if (step === 0 || step === 8) {
+            const root = note(generation + step / 8);
+            playSynthLead(now, root, .34);
+            playSynthLead(now, root * 1.25, .3);
+          }
+          break;
+        }
+        case 'CORAL_INTELLIGENCE': {
+          if (step % 3 === 0) playSynthLead(now, note(step + generation * 2) * 1.25, .11);
+          if (step % 4 === 2) playBass(now, note(step / 2 + generation) * .5, .18);
+          if (step === 15) playHiHat(now, true);
+          break;
+        }
+        case 'NOOSPHERE_BLOOM': {
+          if (step % 4 === 0) playSynthLead(now, note(generation + step) * 2, .16);
+          if (step % 4 === 2) playSynthLead(now, note(generation + step + 3) * 1.5, .13);
+          if (step === 7 || step === 15) playSynthLead(now, note(generation * 5 + step) * 2.5, .08);
+          break;
+        }
+        case 'SYMBIOTIC_DREAMING': {
+          if (step % 4 === 1) playSynthLead(now, note(generation + step * 2) * .75, .42);
+          if (step % 4 === 3) playSynthLead(now, note(generation + step * 3) * 1.5, .2);
+          if (step === 0) playBass(now, note(generation) * .5, .7);
+          break;
+        }
+        case 'NEURAL_REWILDING': {
+          const feral = [0,4,1,7,3,9,2,11];
+          if (step % 2 === 0) playSynthLead(now, note(feral[(step / 2 + generation) % feral.length]) * 1.5, .09);
+          if (step % 4 === 1) playBass(now, note(generation + step) * .5, .12);
+          if (step === 5 || step === 13) playHiHat(now, true);
+          break;
+        }
+        case 'POSTHUMAN_STILLNESS': {
+          if (step % 4 === 0) playSynthLead(now, note(generation + step / 4), .36);
+          if (step % 8 === 2 || step % 8 === 7) playSynthLead(now, note(generation + step + 5) * 2, .07);
+          break;
+        }
+      }
+    }
+
     function stepSequencer() {
       if (!state.isPlaying || !audioCtx || audioCtx.state !== 'running') return;
 
       const now = audioCtx.currentTime;
       const step = stepIndex % 16;
-      const currentScale = genreScales[state.genre] || genreScales.MELODIC_TECHNO;
+      const rhythmFamily = {
+        NOETIC_SURGE:'PSYTRANCE', POLYATTENTION:'CYBERPUNK_TRANCE', EXURSIVE_FLOW:'MELODIC_TECHNO',
+        HYPERFOCUS_LENS:'PROGRESSIVE_HOUSE', DIVERGENCE_ENGINE:'CYBERPUNK_TRANCE', PHASEWEAVE:'MELODIC_TECHNO',
+        AETHERFLUX:'AMBIENT_LOFI', METAMORPHIC_PULSE:'PSYTRANCE', VIRIDION:'PROGRESSIVE_HOUSE',
+        HYPERASTRA:'AMBIENT_LOFI', NOETIC_HYPERFLUX:'CYBERPUNK_TRANCE'
+      }[state.amplifierMode];
+      const currentScale = genreScales[rhythmFamily] || genreScales.MELODIC_TECHNO;
 
-      // --- GENRE-SPECIFIC RHYTHM PATTERNS ---
-      if (state.genre === 'PSYTRANCE') {
+      // Noetic Hyperflux is the dedicated D&B organism; the others retain distinct genre bodies.
+      if (state.amplifierMode === 'NOETIC_HYPERFLUX' || state.amplifierMode === 'NOETIC_SURGE') {
+        playBiodynamicDnB(state.amplifierMode, step, currentScale, now);
+      } else if (rhythmFamily === 'PSYTRANCE') {
         // Fast 16th rolling bass: Kick on 0,4,8,12; Bass on steps 1,2,3, 5,6,7, 9,10,11, 13,14,15
         if (step % 4 === 0) {
           playKick(now);
@@ -660,7 +908,7 @@
           playSynthLead(now, psyLeadNote * 1.5, 0.1);
         }
 
-      } else if (state.genre === 'MELODIC_TECHNO') {
+      } else if (rhythmFamily === 'MELODIC_TECHNO') {
         // Minimal driving techno: Kick on 0,4,8,12; Off-beat bass on 2,6,10,14
         if (step % 4 === 0) playKick(now);
         if (step % 4 === 2 && state.activeSection !== 'INTRO') {
@@ -678,7 +926,7 @@
           }
         }
 
-      } else if (state.genre === 'PROGRESSIVE_HOUSE') {
+      } else if (rhythmFamily === 'PROGRESSIVE_HOUSE') {
         // Euphoric Progressive House: Four-on-the-floor kick, open hi-hat on off-beat
         if (step % 4 === 0) playKick(now);
         if (step % 4 === 2) playHiHat(now, true);
@@ -692,7 +940,7 @@
           playSynthLead(now, arpeggioNote * 2.0, 0.15);
         }
 
-      } else if (state.genre === 'CYBERPUNK_TRANCE') {
+      } else if (rhythmFamily === 'CYBERPUNK_TRANCE') {
         // Industrial Electro Cyberpunk: Heavy kick on 0,4,8,12, syncopated bass
         if (step % 4 === 0 || step === 14) playKick(now);
         if (step === 4 || step === 12) playSnare(now);
@@ -707,7 +955,7 @@
           playSynthLead(now, cyberLead * 1.8, 0.18);
         }
 
-      } else if (state.genre === 'AMBIENT_LOFI') {
+      } else if (rhythmFamily === 'AMBIENT_LOFI') {
         // Chill Lofi: Boom-bap kick on 0, 10; Snare/rimshot on 4, 12; Warm sine chords
         if (step === 0 || step === 10) playKick(now);
         if (step === 4 || step === 12) playSnare(now);
@@ -725,6 +973,7 @@
       }
 
       evolveAmplifier(state.amplifierMode, step, currentScale, now);
+      evolveBiofrequencyBeing(state.lifewayMode, step, currentScale, now);
       stepIndex++;
     }
 
@@ -866,6 +1115,12 @@
           filterNode.frequency.value = 200 + (state.filterCutoff * 18000);
           filterNode.Q.value = Math.min(12, 0.5 + (state.resonance || 0) * 14);
         }
+        if (delayReturnGain) {
+          const now = audioCtx.currentTime;
+          delayReturnGain.gain.cancelScheduledValues(now);
+          delayReturnGain.gain.setValueAtTime(delayReturnGain.gain.value, now);
+          delayReturnGain.gain.linearRampToValueAtTime(state.spectrumMode === 'CRYSTAL' ? 0 : 1, now + .002);
+        }
         if (binauralGain) {
           binauralGain.gain.value = state.binauralEnabled ? state.binauralVol * 0.35 : 0.0;
           updateBinauralFreqs();
@@ -873,6 +1128,10 @@
         if (solfeggioOsc && solfeggioGain) {
           solfeggioOsc.frequency.value = state.solfeggioHz;
           solfeggioGain.gain.value = state.solfeggioEnabled ? state.solfeggioVol * 0.3 : 0.0;
+        }
+        if (solfeggioHarmonicOsc && solfeggioHarmonicGain) {
+          solfeggioHarmonicOsc.frequency.setTargetAtTime(state.solfeggioHz * state.harmonicRatio, audioCtx.currentTime, 0.04);
+          solfeggioHarmonicGain.gain.setTargetAtTime(state.solfeggioEnabled ? state.harmonicVol : 0.0, audioCtx.currentTime, 0.04);
         }
         if (isochronicOsc && isochronicGain && isochronicLfo && isochronicDepth) {
           isochronicOsc.frequency.value = state.binauralCarrierHz;
@@ -897,6 +1156,7 @@
     const amplifierTitle = document.getElementById('amplifier-title');
     const amplifierDescription = document.getElementById('amplifier-description');
     const generationReadout = document.getElementById('generation-readout');
+    const maximizeShaderButton = document.getElementById('maximize-shader');
     const carrierControl = document.getElementById('carrier-frequency');
     const beatControl = document.getElementById('beat-frequency');
     const isoControl = document.getElementById('iso-frequency');
@@ -912,33 +1172,52 @@
     const ecologyState = document.getElementById('ecology-state');
     const spectralProfiles = {
       VELVET:   { waveShape:'sine',     filterCutoff:.36, resonance:.16, primaryColor:'#b8f35a', secondaryColor:'#67e8c2' },
-      CRYSTAL:  { waveShape:'triangle', filterCutoff:.82, resonance:.38, primaryColor:'#67e8c2', secondaryColor:'#f1f3dc' },
+      CRYSTAL:  { waveShape:'triangle', filterCutoff:1, resonance:.22, primaryColor:'#67e8c2', secondaryColor:'#f1f3dc' },
       CELLULAR: { waveShape:'square',   filterCutoff:.56, resonance:.62, primaryColor:'#f3d58b', secondaryColor:'#b8f35a' },
       FERAL:    { waveShape:'sawtooth', filterCutoff:.72, resonance:.78, primaryColor:'#ff8066', secondaryColor:'#7967e8' }
     };
     const amplifierProfiles = {
-      NOETIC_SURGE: { title:'Noetic Surge', description:'Recursive rhythmic descendants gather momentum and causal power.', genre:'PSYTRANCE', bpm:142, geometry:'NEON_GRID', divergence:.52, multiplicity:.62, coherence:.68, exursion:.48 },
-      POLYATTENTION: { title:'Polyattention', description:'Autonomous musical agents follow independent but permeable trajectories.', genre:'CYBERPUNK_TRANCE', bpm:132, geometry:'QUANTUM_PARTICLES', divergence:.66, multiplicity:.94, coherence:.34, exursion:.7 },
-      EXURSIVE_FLOW: { title:'Exursive Flow', description:'Patterns retain memory while continually opening non-returning branches.', genre:'MELODIC_TECHNO', bpm:124, geometry:'COSMIC_TUNNEL', divergence:.82, multiplicity:.58, coherence:.43, exursion:.98 },
-      HYPERFOCUS_LENS: { title:'Hyperfocus Lens', description:'A persistent sonic attractor remains coherent through surrounding change.', genre:'PROGRESSIVE_HOUSE', bpm:118, geometry:'SACRED_MANDALA', divergence:.28, multiplicity:.34, coherence:.96, exursion:.25 },
-      DIVERGENCE_ENGINE: { title:'Ecosystems & Hyperecosystems', description:'Nested musical ecologies bifurcate, overlap and create higher-order habitats of sound.', genre:'CYBERPUNK_TRANCE', bpm:136, geometry:'QUANTUM_PARTICLES', divergence:.98, multiplicity:.76, coherence:.36, exursion:.86 },
-      PHASEWEAVE: { title:'Phaseweave', description:'Asynchronous voices discover and lose transient synchronization.', genre:'MELODIC_TECHNO', bpm:126, geometry:'AURORA_WAVES', divergence:.5, multiplicity:.72, coherence:.7, exursion:.52 },
-      AETHERFLUX: { title:'Aetherflux', description:'Slow spectral immensity is punctuated by rare high-information events.', genre:'AMBIENT_LOFI', bpm:84, geometry:'AURORA_WAVES', divergence:.62, multiplicity:.3, coherence:.6, exursion:.72 },
-      METAMORPHIC_PULSE: { title:'Metamorphic Pulse', description:'Meter, timbre and topology continuously transform one another.', genre:'PSYTRANCE', bpm:130, geometry:'COSMIC_TUNNEL', divergence:.78, multiplicity:.7, coherence:.42, exursion:.88 },
-      VIRIDION: { title:'Viridion', description:'Harmonic growth branches like a luminous biological morphogenesis.', genre:'PROGRESSIVE_HOUSE', bpm:110, geometry:'SACRED_MANDALA', divergence:.46, multiplicity:.68, coherence:.78, exursion:.58 },
-      HYPERASTRA: { title:'Hyperastra', description:'Nested musical timescales create an ecology of perceived immensity.', genre:'AMBIENT_LOFI', bpm:96, geometry:'COSMIC_TUNNEL', divergence:.7, multiplicity:.84, coherence:.52, exursion:.8 },
-      NOETIC_HYPERFLUX: { title:'Noetic Hyperflux', description:'A phase-changing ecology where minor organisms become organizing forces.', genre:'MELODIC_TECHNO', bpm:128, geometry:'COSMIC_TUNNEL', divergence:.72, multiplicity:.68, coherence:.56, exursion:.78 }
+      NOETIC_SURGE: { title:'Noetic Surge', description:'Mystical sub-bass currents move beneath chaotic drum-and-bass breaks whose unstable fills fracture differently with every generation.', genre:'DRUM_AND_BASS', bpm:184, geometry:'NEON_GRID', divergence:.52, multiplicity:.62, coherence:.68, exursion:.48 },
+      POLYATTENTION: { title:'Polyattention', description:'Autonomous musical agents follow independent but permeable trajectories.', genre:'GENERATIVE_IDM', bpm:136, geometry:'QUANTUM_PARTICLES', divergence:.66, multiplicity:.94, coherence:.34, exursion:.7 },
+      EXURSIVE_FLOW: { title:'Exursive Flow', description:'Patterns retain memory while continually opening non-returning branches.', genre:'EXURSIVE_TECHNO', bpm:128, geometry:'COSMIC_TUNNEL', divergence:.82, multiplicity:.58, coherence:.43, exursion:.98 },
+      HYPERFOCUS_LENS: { title:'Hyperfocus Lens', description:'A persistent sonic attractor remains coherent through surrounding change.', genre:'MINIMAL_PROGRESSIVE', bpm:120, geometry:'SACRED_MANDALA', divergence:.28, multiplicity:.34, coherence:.96, exursion:.25 },
+      DIVERGENCE_ENGINE: { title:'Ecosystems & Hyperecosystems', description:'Nested musical ecologies bifurcate, overlap and create higher-order habitats of sound.', genre:'BIOCYBER_TRANCE', bpm:142, geometry:'QUANTUM_PARTICLES', divergence:.98, multiplicity:.76, coherence:.36, exursion:.86 },
+      PHASEWEAVE: { title:'Phaseweave', description:'Asynchronous voices discover and lose transient synchronization.', genre:'POLYRHYTHMIC_TECHNO', bpm:132, geometry:'AURORA_WAVES', divergence:.5, multiplicity:.72, coherence:.7, exursion:.52 },
+      AETHERFLUX: { title:'Aetherflux', description:'Slow spectral immensity is punctuated by rare high-information events.', genre:'COSMIC_AMBIENT', bpm:92, geometry:'AURORA_WAVES', divergence:.62, multiplicity:.3, coherence:.6, exursion:.72 },
+      METAMORPHIC_PULSE: { title:'Metamorphic Pulse', description:'Meter, timbre and topology continuously transform one another.', genre:'MUTANT_PSYTRANCE', bpm:146, geometry:'COSMIC_TUNNEL', divergence:.78, multiplicity:.7, coherence:.42, exursion:.88 },
+      VIRIDION: { title:'Viridion', description:'Harmonic growth branches like a luminous biological morphogenesis.', genre:'ORGANIC_HOUSE', bpm:118, geometry:'SACRED_MANDALA', divergence:.46, multiplicity:.68, coherence:.78, exursion:.58 },
+      HYPERASTRA: { title:'Hyperastra', description:'Nested musical timescales create an ecology of perceived immensity.', genre:'ASTRAL_DOWNTEMPO', bpm:100, geometry:'COSMIC_TUNNEL', divergence:.7, multiplicity:.84, coherence:.52, exursion:.8 },
+      NOETIC_HYPERFLUX: { title:'Noetic Hyperflux', description:'A phase-changing ecology where minor organisms become organizing forces.', genre:'DRUM_AND_BASS', bpm:174, geometry:'COSMIC_TUNNEL', divergence:.72, multiplicity:.68, coherence:.56, exursion:.78 }
     };
     const lifewayProfiles = {
-      MYCELIAL_COMMUNION: { carrier:174, beat:7.83, iso:7.83, sol:285, binaural:true, isoOn:false, title:'Mycelial Communion', description:'Distributed listening unfolds as a subterranean network of slow pulses and interdependent harmonics.', ecology:'networking roots' },
-      CHLOROPHYLL_MIND: { carrier:264, beat:10, iso:8, sol:528, binaural:true, isoOn:false, title:'Chlorophyll Mind', description:'A brilliant photosynthetic canopy opens overhead—verdant harmonics absorb light, multiply and spill into lucid growth.', ecology:'verdant radiance rising', geometry:'SACRED_MANDALA', spectrumMode:'CRYSTAL', waveShape:'triangle', filterCutoff:.9, resonance:.3, bloomIntensity:1.15, speed:.82, mutationDepth:.62, primaryColor:'#C8FF4A', secondaryColor:'#4DFFD2', accentColor:'#F3FFB0' },
-      CORAL_INTELLIGENCE: { carrier:144, beat:6, iso:6, sol:417, binaural:true, isoOn:true, title:'Coral Intelligence', description:'Tidal pulses coordinate many small sensing bodies into a porous collective intelligence.', ecology:'tides synchronizing' },
-      NOOSPHERE_BLOOM: { carrier:256, beat:12, iso:12, sol:639, binaural:true, isoOn:true, title:'Noosphere Bloom', description:'A radiant commons for shared imagination, mutual signal and planetary-scale connection.', ecology:'collective bloom' },
-      SYMBIOTIC_DREAMING: { carrier:108, beat:4, iso:4, sol:852, binaural:true, isoOn:false, title:'Symbiotic Dreaming', description:'Boundaries soften so human, machine and more-than-human imagery can coexist without hierarchy.', ecology:'dream membrane open' },
-      NEURAL_REWILDING: { carrier:333, beat:18, iso:21, sol:741, binaural:true, isoOn:true, title:'Neural Rewilding', description:'Feral rhythms overgrow the grid. Bright signal-species split, swarm and hybridize into an ecstatic wilderness of attention.', ecology:'wild signal stampede', geometry:'QUANTUM_PARTICLES', spectrumMode:'FERAL', waveShape:'sawtooth', filterCutoff:.82, resonance:.76, bloomIntensity:1.25, speed:1.75, mutationDepth:.94, primaryColor:'#FF8066', secondaryColor:'#B8F35A', accentColor:'#9A70FF' },
-      POSTHUMAN_STILLNESS: { carrier:180, beat:2.5, iso:2.5, sol:432, binaural:true, isoOn:false, title:'Posthuman Stillness', description:'Slow intelligence emerges between biological presence and quiet machinic continuity.', ecology:'low-power sentience' }
+      MYCELIAL_COMMUNION: { carrier:174, beat:7.83, iso:7.83, sol:285, binaural:true, isoOn:false, bpm:122, genre:'MELODIC_TECHNO', title:'Mycelial Communion', description:'Interlocking signal-roots exchange motifs across a quickening subterranean network.', ecology:'networking roots · many voices' },
+      CHLOROPHYLL_MIND: { carrier:264, beat:10, iso:8, sol:528, binaural:true, isoOn:false, bpm:132, genre:'PROGRESSIVE_HOUSE', title:'Chlorophyll Mind', description:'A brilliant photosynthetic canopy multiplies into fast ascending harmonies and lucid rhythmic growth.', ecology:'verdant radiance proliferating', geometry:'SACRED_MANDALA', spectrumMode:'CRYSTAL', waveShape:'triangle', filterCutoff:.9, resonance:.3, bloomIntensity:1.15, speed:1.22, mutationDepth:.72, primaryColor:'#C8FF4A', secondaryColor:'#4DFFD2', accentColor:'#F3FFB0' },
+      CORAL_INTELLIGENCE: { carrier:144, beat:6, iso:6, sol:417, binaural:true, isoOn:true, bpm:128, genre:'MELODIC_TECHNO', title:'Coral Intelligence', description:'Three-against-four tidal organisms coordinate into a porous, many-bodied rhythm.', ecology:'polyrhythmic reef awake' },
+      NOOSPHERE_BLOOM: { carrier:320, beat:12, iso:12, sol:639, binaural:true, isoOn:false, bpm:138, genre:'PROGRESSIVE_HOUSE', harmonicRatio:1.5, harmonicVol:.045, title:'Noosphere Bloom', description:'A bright harmonic canopy glows behind rapid call-and-response signals, opening a radiant commons of shared imagination.', ecology:'luminous collective bloom', geometry:'AURORA_WAVES', spectrumMode:'CRYSTAL', waveShape:'triangle', filterCutoff:.94, resonance:.28, bloomIntensity:1.22, speed:1.45, mutationDepth:.82, primaryColor:'#D9FF5A', secondaryColor:'#72FFF1', accentColor:'#FFF0A8' },
+      SYMBIOTIC_DREAMING: { carrier:108, beat:4, iso:4, sol:852, binaural:true, isoOn:false, bpm:108, genre:'AMBIENT_LOFI', title:'Symbiotic Dreaming', description:'Nested slow and fast organisms cross soft boundaries in a lucid, many-species dream.', ecology:'dream membrane multiplying' },
+      NEURAL_REWILDING: { carrier:333, beat:18, iso:21, sol:741, binaural:true, isoOn:true, bpm:146, genre:'PSYTRANCE', title:'Neural Rewilding', description:'Feral rhythms split, swarm and hybridize at high velocity into an ecstatic wilderness of attention.', ecology:'wild signal hyperdiversity', geometry:'QUANTUM_PARTICLES', spectrumMode:'FERAL', waveShape:'sawtooth', filterCutoff:.82, resonance:.76, bloomIntensity:1.25, speed:1.9, mutationDepth:.96, primaryColor:'#FF8066', secondaryColor:'#B8F35A', accentColor:'#9A70FF' },
+      POSTHUMAN_STILLNESS: { carrier:180, beat:2.5, iso:2.5, sol:432, binaural:true, isoOn:false, bpm:112, genre:'MELODIC_TECHNO', title:'Posthuman Stillness', description:'Slow intelligence holds the center while precise micro-signals flicker across machinic calm.', ecology:'quiet system · active edges' }
     };
     let mutationTimer = null;
+    async function toggleShaderMaximize() {
+      const isMaximized = document.fullscreenElement || document.body.classList.contains('shader-maximized');
+      if (isMaximized) {
+        if (document.fullscreenElement) await document.exitFullscreen();
+        document.body.classList.remove('shader-maximized');
+      } else {
+        document.body.classList.add('shader-maximized');
+        if (document.documentElement.requestFullscreen) {
+          try { await document.documentElement.requestFullscreen(); } catch (_) { /* immersive CSS fallback remains active */ }
+        }
+      }
+      maximizeShaderButton.textContent = document.body.classList.contains('shader-maximized') ? 'RESTORE UI' : 'MAXIMIZE SHADER';
+      maximizeShaderButton.setAttribute('aria-label', maximizeShaderButton.textContent === 'RESTORE UI' ? 'Restore interface' : 'Maximize shader');
+    }
+    maximizeShaderButton.addEventListener('click', toggleShaderMaximize);
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement) document.body.classList.remove('shader-maximized');
+      maximizeShaderButton.textContent = document.body.classList.contains('shader-maximized') ? 'RESTORE UI' : 'MAXIMIZE SHADER';
+    });
     function syncWebControls() {
       awakenButton.textContent = state.isPlaying ? 'LET REST' : 'AWAKEN';
       awakenButton.classList.toggle('live', state.isPlaying);
@@ -964,6 +1243,8 @@
       syncWebControls();
     }
     function markCustomEcology() {
+      state.lifewayMode = null;
+      state.harmonicVol = 0.0;
       document.querySelectorAll('[data-lifeway]').forEach(item => item.classList.remove('active'));
       lifewayTitle.textContent = 'Hand-grown frequency ecology';
       lifewayDescription.textContent = 'A custom alliance shaped directly from carrier, interval, pulse and harmonic beacon.';
@@ -996,6 +1277,7 @@
         const profile = lifewayProfiles[button.dataset.lifeway];
         document.querySelectorAll('[data-lifeway]').forEach(item => item.classList.remove('active'));
         button.classList.add('active');
+        state.lifewayMode = button.dataset.lifeway;
         state.binauralCarrierHz = profile.carrier;
         state.binauralBeatHz = profile.beat;
         state.isochronicHz = profile.iso;
@@ -1003,6 +1285,10 @@
         state.binauralEnabled = profile.binaural;
         state.isochronicEnabled = profile.isoOn;
         state.solfeggioEnabled = true;
+        state.harmonicRatio = profile.harmonicRatio || 1.5;
+        state.harmonicVol = profile.harmonicVol || 0.0;
+        state.bpm = profile.bpm;
+        state.genre = profile.genre;
         if (profile.geometry) state.geometry = profile.geometry;
         if (profile.spectrumMode) state.spectrumMode = profile.spectrumMode;
         if (profile.waveShape) state.waveShape = profile.waveShape;
@@ -1020,6 +1306,7 @@
         beatControl.value = profile.beat;
         isoControl.value = profile.iso;
         solfeggioControl.value = String(profile.sol);
+        tempoControl.value = profile.bpm;
         brightnessControl.value = Math.round(state.filterCutoff * 100);
         resonanceControl.value = Math.round(state.resonance * 100);
         mutationControl.value = Math.round(state.mutationDepth * 100);
@@ -1038,7 +1325,8 @@
         document.querySelectorAll('[data-amplifier]').forEach(item => item.classList.remove('active'));
         button.classList.add('active');
         state.amplifierMode = button.dataset.amplifier;
-        Object.assign(state, profile);
+        state.biodynamicShader = button.dataset.amplifier !== 'NOETIC_SURGE';
+        Object.assign(state, { speed:1.0, bloomIntensity:.8, audioSensitivity:1.0, primaryColor:'#B8F35A', secondaryColor:'#67E8C2', accentColor:'#FF8066' }, profile);
         state.isPlaying = true;
         state.generation = 0;
         stepIndex = 0;
@@ -1095,6 +1383,7 @@
         document.querySelectorAll('[data-geometry]').forEach(item => item.classList.remove('active'));
         button.classList.add('active');
         state.geometry = button.dataset.geometry;
+        state.biodynamicShader = false;
         syncWebControls();
       });
     });
@@ -1124,10 +1413,234 @@
     }
 
     let timeAcc = 0;
+    let lastVisualFrame = null;
+    let surgeTravel = 0;
+    let surgeEnergy = .5;
+    const surgeSparkColors = ['#B8FF3D', '#55F5FF', '#FF6EB4', '#FFB85C', '#AB8CFF', '#68FFD5'];
+    const surgeSparks = Array.from({ length: 480 }, (_, i) => {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = .45 + Math.random() * 3.5;
+      return {
+        x: Math.cos(angle) * radius,
+        y: Math.sin(angle) * radius * .78,
+        z: .65 + Math.random() * 15,
+        speed: 6 + Math.random() * 7,
+        size: .7 + Math.random() * 1.1,
+        color: surgeSparkColors[i % surgeSparkColors.length]
+      };
+    });
 
-    function renderVisualizer() {
+    function drawSurgeGrid(cx, cy, deltaSeconds, tempoRate, energy) {
+      // Advance world depth in seconds so high-refresh displays keep the same velocity.
+      surgeEnergy += (energy - surgeEnergy) * (1 - Math.exp(-deltaSeconds * 7));
+      const velocity = Math.max(.25, state.speed) * tempoRate * (1 + surgeEnergy * .18);
+      surgeTravel = (surgeTravel + deltaSeconds * 8.5 * velocity) % 28.8;
+      const horizon = cy + 40;
+      const floorDepth = height - horizon;
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.shadowBlur = 0;
+      ctx.lineCap = 'round';
+
+      // Straight perspective rails preserve the original neon-grid silhouette.
+      ctx.strokeStyle = state.primaryColor;
+      ctx.globalAlpha = .5;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      for (let column = -26; column <= 26; column++) {
+        const x = column * width * .085;
+        ctx.moveTo(cx + x / 29.52, horizon + floorDepth / 29.52);
+        ctx.lineTo(cx + x / .72, horizon + floorDepth / .72);
+      }
+      ctx.stroke();
+
+      // Rows wrap beyond the viewport; perspective naturally opens their spacing as they approach.
+      for (let row = 0; row < 40; row++) {
+        const z = .72 + ((row * .72 - surgeTravel + 28.8) % 28.8);
+        const y = horizon + floorDepth / z;
+        if (y > height + 4) continue;
+        ctx.globalAlpha = Math.min(1, (29.52 - z) / 4) * (.16 + .68 / z);
+        ctx.strokeStyle = row % 4 === 0 ? state.secondaryColor : state.primaryColor;
+        ctx.lineWidth = .7 + 1.6 / z;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+
+      // Colored sparks fly from the same vanishing point with short, continuous depth trails.
+      const focal = Math.min(width, height) * .86;
+      const count = width < 700 ? 320 : surgeSparks.length;
+      for (let i = 0; i < count; i++) {
+        const spark = surgeSparks[i];
+        spark.z = .65 + ((spark.z - .65 - deltaSeconds * spark.speed * velocity) % 15 + 15) % 15;
+        const x = cx + spark.x * focal / spark.z;
+        const y = horizon + spark.y * focal / spark.z;
+        if (x < -100 || x > width + 100 || y < -100 || y > height + 100) continue;
+        const tailZ = spark.z + spark.speed * velocity * .028;
+        let trailX = spark.x * focal * (1 / spark.z - 1 / tailZ);
+        let trailY = spark.y * focal * (1 / spark.z - 1 / tailZ);
+        const trailLimit = Math.min(1, 96 / Math.max(1, Math.hypot(trailX, trailY)));
+        trailX *= trailLimit;
+        trailY *= trailLimit;
+        const approach = 1 - spark.z / 15.65;
+        const size = Math.min(4, spark.size * (.5 + 2.4 / spark.z));
+        ctx.globalAlpha = Math.min(1, (15.65 - spark.z) / 2) * (.14 + approach * .72);
+        ctx.strokeStyle = spark.color;
+        ctx.fillStyle = spark.color;
+        ctx.lineWidth = size;
+        ctx.beginPath();
+        ctx.moveTo(x - trailX, y - trailY);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(x, y, size * .8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawEvolutionaryShader(mode, cx, cy, energy) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.globalCompositeOperation = 'screen';
+      ctx.shadowBlur = 12 * state.bloomIntensity;
+
+      if (mode === 'NOETIC_SURGE') {
+        // Original Noetic Surge: the clean, receding neon-grid horizon.
+        const horizon = 40;
+        ctx.strokeStyle = state.primaryColor;
+        ctx.shadowColor = state.primaryColor;
+        ctx.lineWidth = 1.5;
+        ctx.globalAlpha = .78;
+        for (let x = -width; x < width; x += 60) {
+          ctx.beginPath();
+          ctx.moveTo(x, height / 2);
+          ctx.lineTo(x * .1, horizon);
+          ctx.stroke();
+        }
+        const spacing = 20 + energy * 15;
+        for (let y = horizon; y < height / 2; y += spacing) {
+          ctx.beginPath();
+          ctx.moveTo(-width / 2, y);
+          ctx.lineTo(width / 2, y);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      } else if (mode === 'POLYATTENTION') {
+        for (let agent = 0; agent < 9; agent++) {
+          const orbit = 45 + agent * 24 + Math.sin(timeAcc + agent) * 18;
+          const angle = timeAcc * (.3 + agent * .035) * (agent % 2 ? -1 : 1) + agent;
+          const x = Math.cos(angle) * orbit, y = Math.sin(angle * (1.1 + agent * .02)) * orbit;
+          ctx.beginPath(); ctx.arc(x, y, 4 + energy * 10, 0, Math.PI * 2);
+          ctx.fillStyle = agent % 3 ? state.primaryColor : state.accentColor; ctx.fill();
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(Math.cos(angle + .8) * orbit * .55, Math.sin(angle + .8) * orbit * .55);
+          ctx.strokeStyle = state.secondaryColor; ctx.globalAlpha = .35; ctx.stroke(); ctx.globalAlpha = 1;
+        }
+      } else if (mode === 'EXURSIVE_FLOW') {
+        for (let branch = 0; branch < 13; branch++) {
+          const a = branch * Math.PI * 2 / 13 + timeAcc * .08;
+          const reach = 90 + branch * 15 + energy * 80;
+          ctx.rotate(a);
+          ctx.beginPath(); ctx.moveTo(0, 0);
+          ctx.bezierCurveTo(reach * .22, Math.sin(timeAcc + branch) * 45, reach * .6, Math.cos(timeAcc * .7 + branch) * 70, reach, (branch % 3 - 1) * 32);
+          ctx.strokeStyle = branch % 2 ? state.primaryColor : state.secondaryColor; ctx.lineWidth = 1.2 + energy * 2.5; ctx.stroke();
+          ctx.rotate(-a);
+        }
+      } else if (mode === 'HYPERFOCUS_LENS') {
+        for (let ring = 0; ring < 18; ring++) {
+          const radius = 18 + ring * 17 + Math.sin(timeAcc * 2 + ring * .55) * (4 + energy * 10);
+          ctx.beginPath(); ctx.ellipse(0, 0, radius, radius * (.58 + ring * .012), timeAcc * .06, 0, Math.PI * 2);
+          ctx.strokeStyle = ring % 4 ? state.primaryColor : state.accentColor; ctx.globalAlpha = .22 + ring / 28; ctx.stroke();
+        }
+        ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(0, 0, 8 + energy * 24, 0, Math.PI * 2); ctx.fillStyle = state.secondaryColor; ctx.fill();
+      } else if (mode === 'DIVERGENCE_ENGINE') {
+        const colonies = 7;
+        for (let colony = 0; colony < colonies; colony++) {
+          const a = colony * Math.PI * 2 / colonies + timeAcc * .12;
+          const distance = 80 + colony * 18 + Math.sin(timeAcc + colony) * 24;
+          const x = Math.cos(a) * distance, y = Math.sin(a) * distance;
+          for (let cell = 0; cell < 5; cell++) {
+            ctx.beginPath(); ctx.arc(x + Math.cos(cell * 1.256 + timeAcc) * 20, y + Math.sin(cell * 1.256 + timeAcc) * 20, 6 + energy * 7, 0, Math.PI * 2);
+            ctx.strokeStyle = cell % 2 ? state.primaryColor : state.secondaryColor; ctx.stroke();
+          }
+          ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(x, y); ctx.strokeStyle = state.accentColor; ctx.globalAlpha = .28; ctx.stroke(); ctx.globalAlpha = 1;
+        }
+      } else if (mode === 'PHASEWEAVE') {
+        for (let wave = 0; wave < 8; wave++) {
+          ctx.beginPath();
+          for (let x = -width / 2; x <= width / 2; x += 12) {
+            const y = Math.sin(x * (.008 + wave * .0015) + timeAcc * (1 + wave * .08)) * (24 + wave * 9 + energy * 36) + (wave - 3.5) * 18;
+            x === -width / 2 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+          }
+          ctx.strokeStyle = wave % 2 ? state.primaryColor : state.secondaryColor; ctx.globalAlpha = .25 + wave * .07; ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      } else if (mode === 'AETHERFLUX') {
+        for (let field = 0; field < 9; field++) {
+          const a = timeAcc * .05 + field * .8;
+          const r = 60 + field * 34;
+          ctx.beginPath(); ctx.arc(Math.cos(a) * r * .7, Math.sin(a * .8) * r * .45, 22 + field * 6 + energy * 18, 0, Math.PI * 2);
+          ctx.fillStyle = field % 3 === 0 ? state.accentColor : state.secondaryColor; ctx.globalAlpha = .025 + field * .012; ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      } else if (mode === 'METAMORPHIC_PULSE') {
+        const sides = 5 + Math.floor((Math.sin(timeAcc * .35) + 1) * 3.5);
+        for (let shell = 1; shell <= 10; shell++) {
+          ctx.beginPath();
+          for (let p = 0; p <= sides; p++) {
+            const a = p * Math.PI * 2 / sides + timeAcc * (shell % 2 ? .15 : -.1);
+            const r = shell * 22 * (1 + Math.sin(timeAcc * 1.4 + p + shell) * .12 + energy * .16);
+            p ? ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r) : ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+          }
+          ctx.strokeStyle = shell % 2 ? state.primaryColor : state.accentColor; ctx.globalAlpha = .18 + shell * .055; ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      } else if (mode === 'VIRIDION') {
+        for (let stem = 0; stem < 16; stem++) {
+          const a = stem * Math.PI * 2 / 16 + timeAcc * .04;
+          const length = 95 + (stem % 5) * 28 + energy * 60;
+          ctx.save(); ctx.rotate(a); ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(length * .45, Math.sin(timeAcc + stem) * 32, length, 0);
+          ctx.strokeStyle = stem % 3 ? state.primaryColor : state.secondaryColor; ctx.lineWidth = 1.5 + energy * 2; ctx.stroke();
+          for (let leaf = 1; leaf < 4; leaf++) { ctx.beginPath(); ctx.ellipse(length * leaf / 4, (leaf % 2 ? 1 : -1) * 10, 12 + energy * 8, 4 + energy * 3, leaf % 2 ? .5 : -.5, 0, Math.PI * 2); ctx.fillStyle = state.primaryColor; ctx.globalAlpha = .32; ctx.fill(); }
+          ctx.restore(); ctx.globalAlpha = 1;
+        }
+      } else if (mode === 'HYPERASTRA') {
+        for (let scale = 0; scale < 6; scale++) {
+          const radius = 28 * Math.pow(1.55, scale) * (1 + energy * .08);
+          const points = 5 + scale * 2;
+          ctx.beginPath();
+          for (let p = 0; p <= points * 2; p++) {
+            const a = p * Math.PI / points + timeAcc * (.22 / (scale + 1));
+            const r = p % 2 ? radius * .42 : radius;
+            p ? ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r) : ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+          }
+          ctx.strokeStyle = scale % 2 ? state.primaryColor : state.secondaryColor; ctx.globalAlpha = .18 + scale * .1; ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      } else if (mode === 'NOETIC_HYPERFLUX') {
+        for (let portal = 0; portal < 14; portal++) {
+          const phase = portal / 14 * Math.PI * 2;
+          const x = Math.sin(timeAcc * .4 + phase) * (70 + portal * 7);
+          const y = Math.cos(timeAcc * .31 + phase * 1.7) * (45 + portal * 5);
+          ctx.beginPath(); ctx.arc(x, y, 14 + portal * 3 + energy * 18, phase, phase + Math.PI * 1.35);
+          ctx.strokeStyle = portal % 3 === 0 ? state.accentColor : state.primaryColor; ctx.globalAlpha = .2 + portal * .045; ctx.lineWidth = 1 + energy * 2; ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      } else {
+        ctx.restore(); return false;
+      }
+
+      ctx.restore();
+      return true;
+    }
+
+    function renderVisualizer(frameTime = performance.now()) {
       requestAnimationFrame(renderVisualizer);
-      timeAcc += 0.015 * state.speed;
+      const deltaSeconds = lastVisualFrame === null ? 1 / 60 : Math.max(0, Math.min(.05, (frameTime - lastVisualFrame) / 1000));
+      lastVisualFrame = frameTime;
+      const metabolicShaderRate = Math.max(.55, Math.min(1.85, state.bpm / 128));
+      timeAcc += 0.015 * state.speed * metabolicShaderRate;
 
       let audioEnergy = 0.5;
       if (analyserNode) {
@@ -1138,13 +1651,22 @@
         audioEnergy = (sum / freqData.length / 255.0) * state.audioSensitivity;
       }
 
-      ctx.fillStyle = 'rgba(7, 16, 12, 0.18)';
+      const surgeGridActive = state.amplifierMode === 'NOETIC_SURGE' && state.geometry === 'NEON_GRID';
+      const fadeAlpha = surgeGridActive ? 1 - Math.pow(.72, deltaSeconds * 60) : .18;
+      ctx.fillStyle = `rgba(7, 16, 12, ${fadeAlpha})`;
       ctx.fillRect(0, 0, width, height);
 
       const cx = width / 2;
       const cy = height / 2;
 
-      if (state.geometry === 'COSMIC_TUNNEL') {
+      if (surgeGridActive) {
+        drawSurgeGrid(cx, cy, deltaSeconds, metabolicShaderRate, audioEnergy);
+        return;
+      }
+
+      const drewBiodynamic = state.biodynamicShader && drawEvolutionaryShader(state.amplifierMode, cx, cy, audioEnergy);
+
+      if (!drewBiodynamic && state.geometry === 'COSMIC_TUNNEL') {
         const rings = 18;
         for (let i = rings; i > 0; i--) {
           const r = (i * 25 + (timeAcc * 60) % 25) * (1.0 + audioEnergy * 0.5);
@@ -1156,7 +1678,7 @@
           ctx.shadowColor = state.primaryColor;
           ctx.stroke();
         }
-      } else if (state.geometry === 'SACRED_MANDALA') {
+      } else if (!drewBiodynamic && state.geometry === 'SACRED_MANDALA') {
         const petals = 12;
         ctx.save();
         ctx.translate(cx, cy);
@@ -1170,7 +1692,7 @@
           ctx.stroke();
         }
         ctx.restore();
-      } else if (state.geometry === 'NEON_GRID') {
+      } else if (!drewBiodynamic && state.geometry === 'NEON_GRID') {
         ctx.strokeStyle = state.primaryColor;
         ctx.lineWidth = 1.5;
         const horizon = cy + 40;
@@ -1186,7 +1708,7 @@
           ctx.lineTo(width, y);
           ctx.stroke();
         }
-      } else {
+      } else if (!drewBiodynamic) {
         ctx.beginPath();
         ctx.moveTo(0, cy);
         for (let x = 0; x < width; x += 10) {
