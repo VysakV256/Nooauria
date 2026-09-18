@@ -12,7 +12,7 @@ const html = process.env.NOOAURIA_TEST_REF
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 const settle = async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); };
 
-function habitat() {
+function habitat({ scoreOnly = false } = {}) {
   const contexts = [], intervals = new Map(), elements = new Map(), groups = new Map(), errors = [];
   let nextTimer = 1;
   class Events {
@@ -39,7 +39,7 @@ function habitat() {
     }
     connect(node) { this.connections.push(node); }
     disconnect() { this.connections = []; }
-    start() { this.started = true; this.context.starts++; }
+    start(at = this.context.currentTime) { this.started = true; this.startAt = at; this.context.starts++; }
     stop(at = this.context.currentTime) { this.stopAt = at; }
     setPeriodicWave(wave) { assert.equal(wave.context, this.context, 'A cached waveform must belong to the current context'); }
     getByteFrequencyData(data) { data.fill(24); }
@@ -113,10 +113,155 @@ function habitat() {
     clearInterval: id => intervals.delete(id), setTimeout: () => nextTimer++, clearTimeout() {} };
   vm.createContext(sandbox);
   vm.runInContext(script + `\nthis.inspectAudio = () => ({ context: audioCtx, step: stepIndex, playing: state.isPlaying, voiceCount: typeof activeVoices === 'undefined' ? activeVoiceCount : activeVoices.size, wave: crystalLeadWave, master: masterGain });`, sandbox);
+  vm.runInContext(`
+    this.inspectArrangement = () => ({ elapsed: arrangementTime(), ...arrangementAt(arrangementTime()), bpm: state.bpm });
+    this.scoreEvents = [];
+  `, sandbox);
+  if (scoreOnly) vm.runInContext(`
+    for (const name of ['playKick','playSnare','playHiHat','playGhostSnare','playBass','playMysticalSub','playSynthLead','playSurgeSpark']) {
+      const record = (...args) => scoreEvents.push({ instrument:name, step:stepIndex, time:args[0], args:args.slice(1) });
+      eval(name + ' = record');
+    }
+  `, sandbox);
   return { contexts, intervals, groups, element, document, window, errors, inspect: sandbox.inspectAudio,
+    arrangement: sandbox.inspectArrangement, scoreEvents: sandbox.scoreEvents, spark: sandbox.playSurgeSpark,
     click: (kind, name) => element(`${kind}:${name}`).click(),
     advance(seconds) { const ctx = sandbox.inspectAudio().context; ctx.advance(seconds); for (const fn of [...intervals.values()]) fn(); } };
 }
+
+test('Noetic Surge has high-register stereo bursts, subdivisions and strong dynamic contrast', async () => {
+  const h = habitat({ scoreOnly:true });
+  h.click('amplifier','NOETIC_SURGE'); await settle();
+  const levels = [];
+  const stepSeconds = 15 / h.arrangement().bpm;
+  for (let tick=0; tick<150; tick++) { h.advance(stepSeconds); levels.push(h.arrangement().leadLevel); }
+  const sparks = h.scoreEvents.filter(e => e.instrument === 'playSurgeSpark');
+  assert.ok(sparks.length > 140, 'The surge needs rapid pitched bursts, not just more hats');
+  assert.ok(new Set(sparks.map(e => e.args[0])).size > 30, 'Bursts should move through many pitches');
+  assert.ok(Math.min(...sparks.map(e => e.args[3])) < -.5 && Math.max(...sparks.map(e => e.args[3])) > .5);
+  assert.ok(Math.max(...levels) / Math.min(...levels) > 3, 'Pressure waves need audible dynamic contrast');
+  assert.ok(sparks.some((e,i) => i && e.step === sparks[i-1].step && e.time > sparks[i-1].time), 'Bursts must subdivide the sixteenth-note grid');
+  assert.ok(h.scoreEvents.some(e => e.instrument === 'playMysticalSub'), 'Keep the sub-bass foundation');
+  for (const mode of h.groups.get('[data-amplifier]')) {
+    if (mode.dataset.amplifier === 'NOETIC_SURGE') continue;
+    h.scoreEvents.length = 0; mode.click(); await settle();
+    for (let tick=0; tick<32; tick++) h.advance(.125);
+    assert.equal(h.scoreEvents.filter(e => e.instrument === 'playSurgeSpark').length, 0, 'Surge bursts must not leak into other biodynamics');
+    assert.equal(h.arrangement().surgeEnergy, undefined);
+  }
+});
+
+test('Surge spark voices are bounded, sharply gated and released on rest', async () => {
+  const h = habitat(); h.click('amplifier','NOETIC_SURGE'); await settle();
+  h.inspect().context.advance(1);
+  for (const spectrum of ['VELVET','CRYSTAL']) {
+    h.click('spectrum',spectrum); await settle();
+    const context = h.inspect().context;
+    const before = context.nodes.length;
+    h.spark(context.currentTime + .02, 12000, .05, .1, -.7);
+    const added = context.nodes.slice(before);
+    const sources = added.filter(n => n.source);
+    assert.equal(sources.length, 2);
+    assert.ok(sources[0].frequency.value >= 1200 && sources[0].frequency.value <= 5200);
+    const maxLength = spectrum === 'CRYSTAL' ? .026 : .045;
+    for (const source of sources) assert.ok(source.stopAt - source.startAt <= maxLength + 1e-8);
+    h.element('awaken').click(); await settle();
+    assert.equal(h.inspect().voiceCount, 0);
+    for (const node of added) assert.equal(node.connections.length, 0);
+    h.element('awaken').click(); await settle(); context.advance(1);
+  }
+  assert.equal(h.errors.length, 0);
+});
+
+test('every biodynamic develops for 42 audio seconds without a short arrangement loop', async () => {
+  const h = habitat({ scoreOnly:true });
+  const harmonyPaths = new Set();
+  for (const mode of h.groups.get('[data-amplifier]')) {
+    h.scoreEvents.length = 0;
+    mode.click(); await settle();
+    const first = h.arrangement();
+    assert.equal(first.elapsed, 0);
+    harmonyPaths.add(JSON.stringify(first.score.harmony));
+    const chapters = new Set([first.chapter]);
+    const stepSeconds = 15 / first.bpm;
+    while (h.arrangement().elapsed + stepSeconds < 42) {
+      h.advance(stepSeconds);
+      const a = h.arrangement();
+      assert.equal(a.cycle, 0, mode.dataset.amplifier + ' must not restart before 42 seconds');
+      chapters.add(a.chapter);
+    }
+    assert.equal(chapters.size, 6);
+    const signatures = [];
+    for (let start = 0; start + 32 < h.inspect().step; start += 32) {
+      const phrase = h.scoreEvents.filter(e => e.instrument === 'playSynthLead' && e.step >= start && e.step < start + 32)
+        .map(e => [e.step - start, ...e.args]);
+      signatures.push(JSON.stringify(phrase));
+    }
+    assert.equal(new Set(signatures).size, signatures.length, mode.dataset.amplifier + ': repeated two-bar melody');
+    h.advance(42 - h.arrangement().elapsed + .00001);
+    assert.equal(h.arrangement().cycle, 1);
+    assert.ok(h.arrangement().position < .001);
+    assert.equal(h.inspect().context.state, 'running');
+    assert.equal(h.intervals.size, 1);
+  }
+  assert.equal(harmonyPaths.size, 11, 'Every biodynamic needs its own harmonic journey');
+  assert.equal(h.errors.length, 0);
+});
+
+test('42-second audio clock survives rest, tempo changes and context reconstruction', async () => {
+  const h = habitat(); h.click('amplifier','VIRIDION'); await settle();
+  h.advance(12.5);
+  h.element('awaken').click(); await settle();
+  h.advance(50);
+  assert.equal(h.arrangement().elapsed, 12.5, 'Rest must freeze the composition');
+  h.element('awaken').click(); await settle();
+  for (const bpm of [80, 190]) {
+    h.element('tempo').value = bpm; h.element('tempo').emit('input'); await settle();
+    assert.equal(h.arrangement().elapsed, 12.5);
+    assert.equal(h.intervals.size, 1);
+  }
+  h.advance(9);
+  h.inspect().context.change('closed'); await settle();
+  assert.equal(h.arrangement().elapsed, 21.5);
+  h.advance(20.499);
+  assert.equal(h.arrangement().cycle, 0);
+  h.advance(.002);
+  assert.equal(h.arrangement().cycle, 1);
+  assert.ok(Math.abs(h.arrangement().position - .001) < 1e-8);
+  h.click('amplifier','AETHERFLUX'); await settle();
+  assert.equal(h.arrangement().elapsed, 0, 'Selecting a new biodynamic starts its full arrangement');
+  h.advance(8);
+  h.click('lifeway','CHLOROPHYLL_MIND'); await settle();
+  assert.equal(h.arrangement().elapsed, 0);
+  assert.equal(h.errors.length, 0);
+});
+
+test('all eleven audio graphs remain playable across a full arrangement and its boundary', async () => {
+  for (const spectrum of ['VELVET', 'CRYSTAL']) {
+    const h = habitat(); h.click('spectrum', spectrum);
+    for (const mode of h.groups.get('[data-amplifier]')) {
+      mode.click(); await settle();
+      const context = h.inspect().context;
+      const stepSeconds = 15 / h.arrangement().bpm;
+      let previousStarts = context.starts;
+      for (let tick = 0; tick < Math.ceil(44 / stepSeconds); tick++) {
+        h.advance(stepSeconds);
+        assert.equal(context.state, 'running');
+        assert.ok(h.inspect().voiceCount <= 22);
+        if (tick % 16 === 15) {
+          assert.ok(context.starts > previousStarts, mode.dataset.amplifier + ': audio graph stopped producing notes');
+          previousStarts = context.starts;
+        }
+      }
+      assert.equal(h.arrangement().cycle, 1);
+      h.element('awaken').click(); await settle();
+      assert.equal(h.inspect().voiceCount, 0);
+      // Discard finished mock-node history; the real engine already disconnects these nodes.
+      context.nodes = context.nodes.filter(n => !n.ended && n.stopAt === undefined);
+    }
+    assert.equal(h.errors.length, 0);
+  }
+});
 
 test('Emerge | Rest starts and rests the biodynamic repeatedly', async () => {
   assert.match(html, /id="awaken"[^>]*aria-label="Emerge \| Rest"[^>]*aria-pressed="false"/);

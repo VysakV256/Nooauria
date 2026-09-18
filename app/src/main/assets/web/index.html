@@ -57,6 +57,9 @@
     .amplifier-meta strong { display:block; margin-bottom:4px; color:#f1f3dc; font-size:15px; letter-spacing:.04em; }
     .amplifier-meta p { margin:0; color:#93a89b; font-size:10px; line-height:1.4; }
     .generation { flex:0 0 auto; color:#b8f35a; font:700 10px/1 sans-serif; letter-spacing:.13em; text-transform:uppercase; }
+    .arrangement-status { display:flex; align-items:center; gap:12px; margin-bottom:12px; color:#93a89b; font:700 9px/1.3 sans-serif; letter-spacing:.08em; }
+    #arrangement-readout { white-space:nowrap; }
+    #arrangement-progress { flex:1; min-width:0; height:3px; accent-color:#67e8c2; }
     .amplifier-rail { display:flex; gap:7px; margin:0 -2px 14px; padding:2px; overflow:auto; scrollbar-width:none; }
     .amplifier-rail button { padding:10px 13px; color:#93a89b; background:rgba(255,255,255,.025); border:1px solid rgba(147,168,155,.16); border-radius:18px 8px 18px 8px; white-space:nowrap; }
     .amplifier-rail button.active { color:#07100c; background:#b8f35a; border-color:#b8f35a; }
@@ -100,6 +103,7 @@
       <div><strong id="amplifier-title">Noetic Hyperflux</strong><p id="amplifier-description">A phase-changing ecology where minor organisms become organizing forces.</p></div>
       <span class="generation" id="generation-readout">generation 000</span>
     </div>
+    <div class="arrangement-status"><span id="arrangement-readout" role="timer">EMERGENCE · 00 / 42s</span><progress id="arrangement-progress" max="42" value="0" aria-label="42-second arrangement progress"></progress></div>
     <div class="amplifier-rail" aria-label="Cognitive force amplifiers">
       <button type="button" data-amplifier="NOETIC_SURGE">NOETIC SURGE</button>
       <button type="button" data-amplifier="POLYATTENTION">POLYATTENTION</button>
@@ -316,6 +320,34 @@
     let playbackEpoch = 0;
     let audioStartRequest = null;
     let audioStopRequest = null;
+    const ARRANGEMENT_SECONDS = 42;
+    const arrangementChapters = ['EMERGENCE', 'BRANCHING', 'ASCENT', 'OPEN SPACE', 'FLOURISH', 'RETURN'];
+    let arrangementElapsed = 0;
+    let arrangementAnchor = null;
+    let currentArrangement = null;
+
+    // Audio time, not bars or wall time: changing tempo never shortens the 42-second form.
+    function arrangementTime() {
+      return arrangementElapsed + (arrangementAnchor === null || !audioCtx ? 0 : Math.max(0, audioCtx.currentTime - arrangementAnchor));
+    }
+    function freezeArrangement() {
+      arrangementElapsed = arrangementTime();
+      arrangementAnchor = null;
+    }
+    function resetArrangement() {
+      arrangementElapsed = 0;
+      arrangementAnchor = null;
+      currentArrangement = null;
+      stepIndex = 0;
+      state.generation = 0;
+      updateArrangementReadout();
+    }
+    function updateArrangementReadout() {
+      const position = arrangementTime() % ARRANGEMENT_SECONDS;
+      const chapter = Math.min(5, Math.floor(position / 7));
+      document.getElementById('arrangement-readout').textContent = `${arrangementChapters[chapter]} · ${String(Math.floor(position)).padStart(2, '0')} / 42s`;
+      document.getElementById('arrangement-progress').value = position;
+    }
 
     let limiterNode = null;
     let delayFilter = null;
@@ -501,6 +533,67 @@
       AMBIENT_LOFI: [130.81, 146.83, 155.56, 174.61, 196.00, 220.00, 233.08, 261.63, 293.66, 311.13, 392.00, 440.00] // Jazz 7th Chill Dorian
     };
 
+    // Six seven-second chapters, with a distinct harmonic journey and melodic vocabulary per being.
+    // The short percussion cells remain the pulse, not the length of the composition.
+    const arrangementScores = {
+      NOETIC_SURGE:      { harmony:[0,-2,3,-5,7,0], motif:[0,5,1,8,3,10,2,7,4,11,6,9], stride:1, register:3 },
+      POLYATTENTION:     { harmony:[0,3,-2,5,1,7], motif:[0,4,1,7,2,9,5,3,11,6,10,8], stride:3, register:1.5 },
+      EXURSIVE_FLOW:     { harmony:[0,5,3,8,7,2], motif:[0,2,5,3,7,4,9,6,11,8,10,5], stride:3, register:1 },
+      HYPERFOCUS_LENS:   { harmony:[0,0,5,2,7,0], motif:[0,2,0,4,0,5,2,0,7,4,2,0], stride:4, register:1 },
+      DIVERGENCE_ENGINE: { harmony:[0,1,5,-2,8,3], motif:[0,3,7,1,5,9,2,6,11,4,8,10], stride:3, register:1.25 },
+      PHASEWEAVE:        { harmony:[0,5,-2,3,7,2], motif:[0,3,1,4,2,5,3,7,4,8,5,9], stride:3, register:1 },
+      AETHERFLUX:        { harmony:[0,-5,3,7,5,0], motif:[0,7,4,9,2,11,5,8,3,10,6,1], stride:8, register:.75 },
+      METAMORPHIC_PULSE: { harmony:[0,1,-2,6,3,7], motif:[0,1,5,2,8,3,10,4,7,6,11,9], stride:2, register:1.5 },
+      VIRIDION:          { harmony:[0,5,7,2,9,0], motif:[0,2,4,7,5,9,7,11,9,6,4,2], stride:4, register:1.5 },
+      HYPERASTRA:        { harmony:[0,7,3,-2,5,0], motif:[0,7,2,9,4,11,5,10,3,8,1,6], stride:4, register:2 },
+      NOETIC_HYPERFLUX:  { harmony:[0,3,6,-2,7,1], motif:[0,2,6,1,7,3,9,4,11,5,8,10], stride:2, register:1.5 }
+    };
+
+    function arrangementAt(seconds, mode = state.amplifierMode) {
+      const position = Math.max(0, seconds) % ARRANGEMENT_SECONDS;
+      const cycle = Math.floor(Math.max(0, seconds) / ARRANGEMENT_SECONDS);
+      const chapter = Math.min(5, Math.floor(position / 7));
+      const score = arrangementScores[mode] || arrangementScores.NOETIC_HYPERFLUX;
+      const arrangement = { position, cycle, chapter, score,
+        transpose: Math.pow(2, score.harmony[chapter] / 12),
+        leadLevel: [.72, .86, 1, .58, 1.08, .8][chapter],
+        bassLevel: [.88, .94, 1, .74, 1, .9][chapter],
+        hatLevel: [.7, .82, 1, .48, 1, .72][chapter] };
+      if (mode === 'NOETIC_SURGE') {
+        // Irregular pressure waves and abrupt accents, not a constant wall of extra gain.
+        const pressure = Math.pow(.5 + .5 * Math.sin(seconds * 3.7 + Math.sin(seconds * 1.13) * 2.6), 2);
+        const fracture = (stepIndex * 7 + Math.floor(stepIndex / 16) * 11) % 19;
+        arrangement.surgeEnergy = fracture === 8 ? .08 : (fracture < 3 ? 1 : .16 + pressure * .84);
+        arrangement.leadLevel *= .24 + arrangement.surgeEnergy * 1.04;
+        arrangement.bassLevel *= .76 + arrangement.surgeEnergy * .24;
+        arrangement.hatLevel *= .46 + arrangement.surgeEnergy * .54;
+      }
+      return arrangement;
+    }
+
+    function playArrangementPhrase(arrangement, step, scale, now) {
+      const { chapter, cycle, score } = arrangement;
+      const bar = Math.floor(stepIndex / 16);
+      const stride = chapter === 3 ? score.stride * 2 : (chapter === 4 ? Math.max(state.amplifierMode === 'NOETIC_SURGE' ? 1 : 2, score.stride - 1) : score.stride);
+      // Each bar advances through a long melody rather than restarting the same arpeggio.
+      if (stepIndex % stride === 0) {
+        const cursor = Math.floor(stepIndex / stride) + chapter * 5 + cycle * 7;
+        const direction = chapter === 3 || chapter === 5 ? -1 : 1;
+        const index = ((cursor * direction) % score.motif.length + score.motif.length) % score.motif.length;
+        const degree = (score.motif[index] + Math.floor(cursor / score.motif.length) * 2) % scale.length;
+        const length = state.amplifierMode === 'AETHERFLUX' ? .85 : [.16,.12,.1,.28,.09,.2][chapter];
+        playSynthLead(now, scale[degree] * score.register, length, .115);
+      }
+      // Evolving turnarounds articulate the chapters without replacing each genre's groove.
+      if (chapter !== 3 && step >= 12 && (step + bar * 3 + chapter) % (chapter === 4 ? 2 : 5) === 0) {
+        if (state.amplifierMode === 'AETHERFLUX' || state.amplifierMode === 'HYPERASTRA') {
+          playSynthLead(now, scale[(bar + chapter * 2 + step) % scale.length] * 2, .075, .075);
+        } else {
+          playGhostSnare(now, .24 + chapter * .045);
+        }
+      }
+    }
+
     function playKick(time) {
       const voice = reserveVoice(.32);
       if (!voice) return;
@@ -515,7 +608,7 @@
       osc.frequency.setValueAtTime(isPsy ? 160 : (isLofi ? 100 : 130), time);
       osc.frequency.exponentialRampToValueAtTime(isPsy ? 45 : (isLofi ? 30 : 36), time + (isLofi ? 0.15 : 0.08));
 
-      gain.gain.setValueAtTime(isLofi ? 0.3 : 0.45, time);
+      gain.gain.setValueAtTime((isLofi ? 0.3 : 0.45) * (currentArrangement?.bassLevel ?? 1), time);
       gain.gain.exponentialRampToValueAtTime(0.001, time + (isLofi ? 0.3 : 0.22));
 
       osc.connect(gain);
@@ -543,7 +636,7 @@
 
       const gain = audioCtx.createGain();
       trackVoice(voice, [whiteNoise], [filter, gain]);
-      gain.gain.setValueAtTime(open ? 0.075 : 0.05, time);
+      gain.gain.setValueAtTime((open ? 0.075 : 0.05) * (currentArrangement?.hatLevel ?? 1), time);
       gain.gain.exponentialRampToValueAtTime(0.001, time + (open ? 0.12 : 0.04));
 
       whiteNoise.connect(filter);
@@ -559,9 +652,10 @@
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       trackVoice(voice, [osc], [gain]);
-      osc.type = state.waveShape === 'sine' ? 'sine' : (state.genre === 'CYBERPUNK_TRANCE' ? 'sawtooth' : 'triangle');
-      osc.frequency.setValueAtTime(170, time);
-      osc.frequency.exponentialRampToValueAtTime(75, time + 0.09);
+      const surge = state.amplifierMode === 'NOETIC_SURGE';
+      osc.type = surge ? 'triangle' : (state.waveShape === 'sine' ? 'sine' : (state.genre === 'CYBERPUNK_TRANCE' ? 'sawtooth' : 'triangle'));
+      osc.frequency.setValueAtTime(surge ? 285 : 170, time);
+      osc.frequency.exponentialRampToValueAtTime(surge ? 115 : 75, time + (surge ? .055 : .09));
       gain.gain.setValueAtTime(0.2, time);
       gain.gain.exponentialRampToValueAtTime(0.005, time + 0.12);
 
@@ -618,7 +712,7 @@
       if (step === 4 || step === 12) playSnare(now);
       if ([2,7,10,15].includes(step)) playGhostSnare(now, mode === 'HYPERFOCUS_LENS' ? .28 : .48);
       playHiHat(now, step === 7 || step === 15);
-      if (step % 2 === 1 && ['NOETIC_SURGE','POLYATTENTION','METAMORPHIC_PULSE'].includes(mode)) playHiHat(now, false);
+      if (step % 2 === 1 && ['POLYATTENTION','METAMORPHIC_PULSE'].includes(mode)) playHiHat(now, false);
       if (state.activeSection !== 'INTRO' && basses.includes(step)) {
         const motion = mode === 'HYPERFOCUS_LENS' ? 0 : (step + generation * (mode === 'DIVERGENCE_ENGINE' ? 3 : 1)) % Math.min(7, scale.length);
         const depth = mode === 'AETHERFLUX' ? .25 : .5;
@@ -632,7 +726,6 @@
         if ([1,5,7,11,13,15].includes(step) && (step + generation) % 3 !== 0) {
           playGhostSnare(now, .55 + ((step + generation) % 4) * .1);
         }
-        if (step >= 12 || generation % 4 === 3) playHiHat(now, step % 2 === 0);
         if (state.activeSection !== 'INTRO' && (step === 0 || step === 7 || step === 11 || step === 15)) {
           const mysticPath = [0, 5, 2, 8, 3, 10, 1];
           const subRoot = scale[mysticPath[(generation + step) % mysticPath.length] % scale.length] * .25;
@@ -642,7 +735,10 @@
         if (step >= fillGate) {
           const fracture = (step * 7 + generation * 11) % 5;
           if (fracture !== 2) playGhostSnare(now, .4 + fracture * .12);
-          if (fracture === 0 || fracture === 4) playHiHat(now, true);
+          if (fracture === 0 || fracture === 4) {
+            const subdivision = 15 / Math.max(60, state.bpm);
+            playGhostSnare(now + subdivision * .5, .34 + (currentArrangement?.surgeEnergy ?? 1) * .38);
+          }
           if (step === 15 && generation % 2) playKick(now);
         }
       }
@@ -682,7 +778,7 @@
       bassFilter.Q.value = 1 + state.resonance * 16;
       bassFilter.frequency.exponentialRampToValueAtTime(200, time + duration);
 
-      gain.gain.setValueAtTime(0.25, time);
+      gain.gain.setValueAtTime(0.25 * (currentArrangement?.bassLevel ?? 1), time);
       gain.gain.exponentialRampToValueAtTime(0.005, time + duration);
 
       osc.connect(bassFilter);
@@ -728,10 +824,51 @@
       overtone.stop(time + duration);
     }
 
+    // Pitched, stereo microbursts supply the high-frequency rush without a sustained noise layer.
+    function playSurgeSpark(time, noteHz, duration = .035, level = .09, pan = 0) {
+      if (!audioCtx || audioCtx.state !== 'running') return;
+      const crystal = state.spectrumMode === 'CRYSTAL';
+      const length = Math.min(duration, crystal ? .026 : .045);
+      const voice = reserveVoice(Math.max(0, time - audioCtx.currentTime) + length + .03);
+      if (!voice) return;
+      let pitch = Math.max(1, noteHz);
+      const ceiling = Math.min(5200, audioCtx.sampleRate * .15);
+      while (pitch < 1200) pitch *= 2;
+      while (pitch > ceiling) pitch /= 2;
+      const carrier = audioCtx.createOscillator();
+      const modulator = audioCtx.createOscillator();
+      const depth = audioCtx.createGain();
+      const gain = audioCtx.createGain();
+      const panner = audioCtx.createStereoPanner ? audioCtx.createStereoPanner() : null;
+      carrier.type = 'sine';
+      modulator.type = 'sine';
+      carrier.frequency.setValueAtTime(pitch, time);
+      modulator.frequency.setValueAtTime(pitch * (crystal ? 2 : 1.5), time);
+      depth.gain.setValueAtTime(pitch * (crystal ? .06 : .19), time);
+      depth.gain.linearRampToValueAtTime(0, time + length);
+      const peak = Math.min(.12, level) * (currentArrangement?.leadLevel ?? 1);
+      gain.gain.setValueAtTime(0, time);
+      gain.gain.linearRampToValueAtTime(peak, time + .0007);
+      gain.gain.setValueAtTime(peak * .78, time + length - .003);
+      gain.gain.linearRampToValueAtTime(0, time + length);
+      modulator.connect(depth);
+      depth.connect(carrier.frequency);
+      carrier.connect(gain);
+      if (panner) {
+        panner.pan.value = Math.max(-.8, Math.min(.8, pan));
+        gain.connect(panner); panner.connect(masterGain);
+      } else gain.connect(masterGain);
+      trackVoice(voice, [carrier, modulator], [depth, gain, ...(panner ? [panner] : [])]);
+      carrier.start(time); modulator.start(time);
+      carrier.stop(time + length); modulator.stop(time + length);
+    }
+
     function playSynthLead(time, noteHz, duration = 0.22, level = 0.14) {
+      level *= currentArrangement?.leadLevel ?? 1;
       const isCrystal = state.spectrumMode === 'CRYSTAL';
+      const isSurge = state.amplifierMode === 'NOETIC_SURGE';
       const stepDuration = 15 / Math.max(60, state.bpm);
-      const noteDuration = isCrystal ? Math.min(duration, .032, stepDuration * .4) : duration;
+      const noteDuration = isCrystal ? Math.min(duration, .032, stepDuration * .4) : (isSurge ? Math.min(duration, .075) : duration);
       const voice = reserveVoice(noteDuration + .05);
       if (!voice) return;
       const osc = audioCtx.createOscillator();
@@ -747,6 +884,8 @@
           );
         }
         osc.setPeriodicWave(crystalLeadWave);
+      } else if (isSurge && state.spectrumMode === 'VELVET') {
+        osc.type = 'triangle';
       } else if (state.waveShape) {
         osc.type = state.waveShape;
       } else if (state.genre === 'AMBIENT_LOFI') {
@@ -763,6 +902,10 @@
         pitch *= 4;
         while (pitch < 880) pitch *= 2;
         while (pitch > Math.min(4400, audioCtx.sampleRate * .125)) pitch /= 2;
+      } else if (isSurge) {
+        pitch *= 2;
+        while (pitch < 1100) pitch *= 2;
+        while (pitch > Math.min(4400, audioCtx.sampleRate * .125)) pitch /= 2;
       }
       osc.frequency.setValueAtTime(pitch, time);
 
@@ -774,6 +917,11 @@
         gain.gain.setValueAtTime(0, time);
         gain.gain.linearRampToValueAtTime(sustain, time + attack);
         gain.gain.setValueAtTime(sustain, time + noteDuration - release);
+        gain.gain.linearRampToValueAtTime(0, time + noteDuration);
+      } else if (isSurge) {
+        gain.gain.setValueAtTime(0, time);
+        gain.gain.linearRampToValueAtTime(Math.min(.19, level), time + .0008);
+        gain.gain.exponentialRampToValueAtTime(.001, time + noteDuration - .002);
         gain.gain.linearRampToValueAtTime(0, time + noteDuration);
       } else {
         gain.gain.setValueAtTime(Math.min(0.22, level), time);
@@ -794,8 +942,9 @@
       if (step === 0) document.getElementById('generation-readout').textContent = `generation ${String(generation).padStart(3,'0')}`;
 
       switch (mode) {
-        case 'NOETIC_SURGE': { // four interacting sonic fields accumulate momentum
-          const density = Math.min(4, 1 + Math.floor((generation % 12) / 3));
+        case 'NOETIC_SURGE': { // pressure waves fracture into high-register swarms
+          const energy = currentArrangement?.surgeEnergy ?? 1;
+          const density = 2 + Math.floor(energy * 3);
           // Infinite perspective currents: a looping bass trajectory continually changes depth.
           if (step % 2 === 0) {
             const perspectiveIndex = (step / 2 + generation * 2) % scale.length;
@@ -807,19 +956,20 @@
             const exursiveIndex = (step * step + generation * 5) % scale.length;
             playSynthLead(now, scale[exursiveIndex] * (generation % 2 ? 1.5 : 2), .11 + density * .018, .145);
           }
-          // Chaotic spark organisms appear as short, bright autonomous micro-phrases.
-          if (((step * 7 + generation * 11) % 13) < 4) {
-            const sparkNote = scale[(step * 5 + generation * 3) % scale.length] * (2.2 + (step % 3) * .35);
-            playSynthLead(now, sparkNote, .045 + (step % 2) * .025, .105);
+          // Uneven 32nd/triplet attacks leap across stereo space instead of piling up hiss.
+          if (energy > .3 || step % 4 === 0) {
+            const fragments = energy > .75 ? 3 : 2;
+            const spacing = (15 / Math.max(60, state.bpm)) / fragments;
+            for (let fragment = 0; fragment < fragments; fragment++) {
+              const index = (step * 5 + generation * 7 + fragment * (generation % 3 + 2)) % scale.length;
+              const register = (step + fragment + generation) % 3 === 0 ? 8 : 4;
+              playSurgeSpark(now + fragment * spacing, scale[index] * register,
+                Math.min(.04, spacing * .72), .075 + energy * .035,
+                ((step * 3 + fragment * 5 + generation) % 9 - 4) / 5);
+            }
           }
-          // Tessellated pulse arcs: repeating triadic cells propagate every quarter-cycle.
-          if (step % 4 === 0) {
-            const cellRoot = scale[(generation + step / 4) % scale.length];
-            playSynthLead(now, cellRoot, .18, .15);
-            playSynthLead(now, cellRoot * 1.25, .16, .13);
-            playSynthLead(now, cellRoot * 1.5, .14, .12);
-          }
-          if (step % Math.max(1, 8 / density) === 0) playSynthLead(now, branch * (1 + density * .12), .09 + density * .02, .14);
+          // Bright chord shards punctuate the wave crests; sub currents keep the D&B weight.
+          if (energy > .68 && step % 4 === 0) playSynthLead(now, branch * 4, .045, .17);
           break;
         }
         case 'POLYATTENTION': { // autonomous agents occupy separate trajectories
@@ -948,13 +1098,18 @@
 
       const now = audioCtx.currentTime;
       const step = stepIndex % 16;
+      currentArrangement = arrangementAt(arrangementTime());
+      const arrangement = currentArrangement;
+      updateArrangementReadout();
       const rhythmFamily = {
         NOETIC_SURGE:'PSYTRANCE', POLYATTENTION:'CYBERPUNK_TRANCE', EXURSIVE_FLOW:'MELODIC_TECHNO',
         HYPERFOCUS_LENS:'PROGRESSIVE_HOUSE', DIVERGENCE_ENGINE:'CYBERPUNK_TRANCE', PHASEWEAVE:'MELODIC_TECHNO',
         AETHERFLUX:'AMBIENT_LOFI', METAMORPHIC_PULSE:'PSYTRANCE', VIRIDION:'PROGRESSIVE_HOUSE',
         HYPERASTRA:'AMBIENT_LOFI', NOETIC_HYPERFLUX:'CYBERPUNK_TRANCE'
       }[state.amplifierMode];
-      const currentScale = genreScales[rhythmFamily] || genreScales.MELODIC_TECHNO;
+      const currentScale = (genreScales[rhythmFamily] || genreScales.MELODIC_TECHNO).map(note => note * arrangement.transpose);
+
+      playArrangementPhrase(arrangement, step, currentScale, now);
 
       // Noetic Hyperflux is the dedicated D&B organism; the others retain distinct genre bodies.
       if (state.amplifierMode === 'NOETIC_HYPERFLUX' || state.amplifierMode === 'NOETIC_SURGE') {
@@ -969,11 +1124,6 @@
         }
         if (step % 2 === 1) playHiHat(now, step % 4 === 3);
         if (step === 4 || step === 12) playSnare(now);
-
-        if (state.activeSection === 'DROP' || state.activeSection === 'BUILDUP') {
-          const psyLeadNote = currentScale[(step * 3 + stepIndex) % currentScale.length];
-          playSynthLead(now, psyLeadNote * 1.5, 0.1);
-        }
 
       } else if (rhythmFamily === 'MELODIC_TECHNO') {
         // Minimal driving techno: Kick on 0,4,8,12; Off-beat bass on 2,6,10,14
@@ -1002,11 +1152,6 @@
           const houseBass = currentScale[(step / 2) % 4];
           playBass(now, houseBass, 0.18);
         }
-        if (state.activeSection === 'DROP' || state.activeSection === 'BUILDUP') {
-          const arpeggioNote = currentScale[(step * 5) % currentScale.length];
-          playSynthLead(now, arpeggioNote * 2.0, 0.15);
-        }
-
       } else if (rhythmFamily === 'CYBERPUNK_TRANCE') {
         // Industrial Electro Cyberpunk: Heavy kick on 0,4,8,12, syncopated bass
         if (step % 4 === 0 || step === 14) playKick(now);
@@ -1017,11 +1162,6 @@
           const cyberBass = currentScale[(stepIndex * 2) % 6];
           playBass(now, cyberBass, 0.14);
         }
-        if (state.activeSection === 'DROP' || state.activeSection === 'BUILDUP') {
-          const cyberLead = currentScale[(step * 7) % currentScale.length];
-          playSynthLead(now, cyberLead * 1.8, 0.18);
-        }
-
       } else if (rhythmFamily === 'AMBIENT_LOFI') {
         // Chill Lofi: Boom-bap kick on 0, 10; Snare/rimshot on 4, 12; Warm sine chords
         if (step === 0 || step === 10) playKick(now);
@@ -1054,6 +1194,7 @@
     }
 
     function clearSequencerClock() {
+      freezeArrangement();
       if (sequencerTimer !== null) clearInterval(sequencerTimer);
       sequencerTimer = null;
       lastScheduledBpm = 0;
@@ -1066,6 +1207,7 @@
       if (sequencerTimer === null || lastScheduledBpm !== state.bpm) {
         clearSequencerClock();
         lastScheduledBpm = state.bpm;
+        arrangementAnchor = audioCtx.currentTime;
         const intervalMs = 15000 / Math.max(60, state.bpm);
         sequencerTimer = setInterval(stepSequencer, intervalMs);
         stepSequencer();
@@ -1126,6 +1268,7 @@
       audioStartRequest = null;
       clearSequencerClock();
       clearSynthVoices();
+      updateArrangementReadout();
       const context = audioCtx;
       if (context && context.state !== 'closed') {
         masterGain.gain.cancelScheduledValues(context.currentTime);
@@ -1305,7 +1448,7 @@
       FERAL:    { waveShape:'sawtooth', filterCutoff:.72, resonance:.78, primaryColor:'#ff8066', secondaryColor:'#7967e8' }
     };
     const amplifierProfiles = {
-      NOETIC_SURGE: { title:'Noetic Surge', description:'Mystical sub-bass currents move beneath chaotic drum-and-bass breaks whose unstable fills fracture differently with every generation.', genre:'DRUM_AND_BASS', bpm:184, geometry:'NEON_GRID', divergence:.52, multiplicity:.62, coherence:.68, exursion:.48 },
+      NOETIC_SURGE: { title:'Noetic Surge', description:'High-pitched stereo swarms erupt over fractured 184 BPM drum-and-bass: pressure waves, triplet sparks and unstable fills surge above a mystical sub-bass undertow.', genre:'DRUM_AND_BASS', bpm:184, geometry:'NEON_GRID', divergence:.52, multiplicity:.62, coherence:.68, exursion:.48 },
       POLYATTENTION: { title:'Polyattention', description:'Autonomous musical agents follow independent but permeable trajectories.', genre:'GENERATIVE_IDM', bpm:136, geometry:'QUANTUM_PARTICLES', divergence:.66, multiplicity:.94, coherence:.34, exursion:.7 },
       EXURSIVE_FLOW: { title:'Exursive Flow', description:'Patterns retain memory while continually opening non-returning branches.', genre:'EXURSIVE_TECHNO', bpm:128, geometry:'COSMIC_TUNNEL', divergence:.82, multiplicity:.58, coherence:.43, exursion:.98 },
       HYPERFOCUS_LENS: { title:'Hyperfocus Lens', description:'A persistent sonic attractor remains coherent through surrounding change.', genre:'MINIMAL_PROGRESSIVE', bpm:120, geometry:'SACRED_MANDALA', divergence:.28, multiplicity:.34, coherence:.96, exursion:.25 },
@@ -1406,6 +1549,7 @@
         document.querySelectorAll('[data-lifeway]').forEach(item => item.classList.remove('active'));
         button.classList.add('active');
         state.lifewayMode = button.dataset.lifeway;
+        resetArrangement();
         state.binauralCarrierHz = profile.carrier;
         state.binauralBeatHz = profile.beat;
         state.isochronicHz = profile.iso;
@@ -1458,8 +1602,7 @@
         state.biodynamicShader = button.dataset.amplifier !== 'NOETIC_SURGE';
         Object.assign(state, { speed:1.0, bloomIntensity:.8, audioSensitivity:1.0, primaryColor:'#B8F35A', secondaryColor:'#67E8C2', accentColor:'#FF8066' }, profile);
         state.isPlaying = true;
-        state.generation = 0;
-        stepIndex = 0;
+        resetArrangement();
         amplifierTitle.textContent = profile.title;
         amplifierDescription.textContent = profile.description;
         tempoControl.value = profile.bpm;

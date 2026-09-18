@@ -12,6 +12,7 @@
 <p>Serve the repository locally and open this page. The checks use the actual Web Audio engine and measure its post-limiter signal. This test file is outside the Firebase hosting directory.</p>
 <button id="run" disabled>Run playback stress test</button>
 <button id="close" disabled>Close context to test recovery</button>
+<button id="arrangement" disabled>Run 42-second arrangement test</button>
 <pre id="report" role="status">Loading current app…</pre>
 <iframe id="app" title="Nooauria test instance"></iframe>
 <script>
@@ -19,6 +20,7 @@
   const report = document.getElementById('report');
   const run = document.getElementById('run');
   const close = document.getElementById('close');
+  const arrangement = document.getElementById('arrangement');
   function installProbe() {
     let meter, meterContext;
     window.playbackProbe = () => {
@@ -33,7 +35,9 @@
       const samples = new Float32Array(meter.fftSize);
       meter.getFloatTimeDomainData(samples);
       return { state:audioCtx.state, step:stepIndex, voices:activeVoices.size,
+        elapsed:arrangementTime(), chapter:arrangementAt(arrangementTime()).chapter, cycle:arrangementAt(arrangementTime()).cycle,
         finite:samples.every(Number.isFinite),
+        peak:samples.reduce((peak,x) => Math.max(peak, Math.abs(x)), 0),
         rms:Math.sqrt(samples.reduce((sum,x) => sum + x*x, 0) / samples.length) };
     };
     window.closeTestContext = () => audioCtx ? audioCtx.close() : Promise.resolve();
@@ -41,13 +45,17 @@
   function log(text) { report.textContent += text + '\n'; }
   const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   async function measure(label) {
-    let maxRms = 0;
-    for (let i=0;i<6;i++) {
+    let maxRms = 0, checked = 0;
+    for (let i=0;i<24 && checked<6;i++) {
       await wait(30);
       const p = frame.contentWindow.playbackProbe();
-      if (!p.finite || p.state !== 'running' || p.voices > 22 || p.step < 1) throw new Error(label + ': ' + JSON.stringify(p));
+      // Resume/suspend are asynchronous; allow a bounded startup, then require six stable samples.
+      if (checked === 0 && (p.state !== 'running' || p.step < 1)) continue;
+      if (!p.finite || p.state !== 'running' || p.voices > 22 || p.step < 1 || p.peak >= .99) throw new Error(label + ': ' + JSON.stringify(p));
       maxRms = Math.max(maxRms, p.rms);
+      checked++;
     }
+    if (checked < 6) throw new Error(label + ': playback did not settle within 720ms');
     if (maxRms < .0001) throw new Error(label + ': silent output');
     return maxRms;
   }
@@ -58,7 +66,7 @@
     }
   }
   run.onclick = async () => {
-    run.disabled = true; close.disabled = true; report.textContent = '';
+    run.disabled = true; close.disabled = true; arrangement.disabled = true; report.textContent = '';
     try {
       const doc = frame.contentDocument;
       const modes = [...doc.querySelectorAll('[data-amplifier]')];
@@ -81,8 +89,40 @@
       const paused = frame.contentWindow.playbackProbe();
       if (paused.state !== 'suspended' || paused.voices !== 0) throw new Error('Pause did not release voices');
       log(`PASS: ${checked} audible selections, rapid rest/start, and final pause. Minimum measured RMS ${minSignal.toFixed(5)}.`);
-    } catch (error) { log('FAIL: ' + error.message); }
-    finally { run.disabled = false; close.disabled = false; }
+    } catch (error) {
+      log('FAIL: ' + error.message);
+      if (frame.contentDocument.getElementById('awaken').getAttribute('aria-pressed') === 'true') frame.contentDocument.getElementById('awaken').click();
+    }
+    finally { run.disabled = false; close.disabled = false; arrangement.disabled = false; }
+  };
+  arrangement.onclick = async () => {
+    run.disabled = true; close.disabled = true; arrangement.disabled = true; report.textContent = '';
+    try {
+      const doc = frame.contentDocument;
+      doc.querySelector('[data-amplifier="NOETIC_SURGE"]').click();
+      muteContinuousTones();
+      const chapters = new Set();
+      const started = performance.now();
+      let completed = false;
+      while (performance.now() - started < 55000) {
+        await measure('42-second arrangement');
+        const p = frame.contentWindow.playbackProbe();
+        if (p.elapsed < 42 && p.cycle !== 0) throw new Error('Arrangement restarted early');
+        if (!chapters.has(p.chapter) && p.cycle === 0) {
+          chapters.add(p.chapter); log(`PASS: chapter ${p.chapter + 1}/6, audible at ${p.elapsed.toFixed(2)}s`);
+        }
+        if (p.cycle === 1) { completed = true; break; }
+        await wait(400);
+      }
+      if (!completed || chapters.size !== 6) throw new Error('The full 42-second form did not complete');
+      doc.getElementById('awaken').click(); await wait(60);
+      const paused = frame.contentWindow.playbackProbe();
+      if (paused.state !== 'suspended' || paused.voices !== 0) throw new Error('Rest did not release the arrangement voices');
+      log('PASS: all six chapters played through 42 seconds, then continued into the next arc; final rest succeeded.');
+    } catch (error) {
+      log('FAIL: ' + error.message);
+      if (frame.contentDocument.getElementById('awaken').getAttribute('aria-pressed') === 'true') frame.contentDocument.getElementById('awaken').click();
+    } finally { run.disabled = false; close.disabled = false; arrangement.disabled = false; }
   };
   close.onclick = async () => {
     await frame.contentWindow.closeTestContext();
@@ -91,7 +131,7 @@
   fetch('../app/src/main/assets/web/index.html').then(r => {
     if (!r.ok) throw new Error('App load failed'); return r.text();
   }).then(html => {
-    frame.onload = () => { run.disabled = false; close.disabled = false; report.textContent = 'Ready.\n'; };
+    frame.onload = () => { run.disabled = false; close.disabled = false; arrangement.disabled = false; report.textContent = 'Ready.\n'; };
     frame.srcdoc = html.replace('</body>', '<script>(' + installProbe.toString() + ')();<' + '/script></body>');
   }).catch(error => { report.textContent = error.message; });
 </script>
