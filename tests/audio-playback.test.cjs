@@ -119,7 +119,7 @@ function habitat({ scoreOnly = false } = {}) {
     this.scoreEvents = [];
   `, sandbox);
   if (scoreOnly) vm.runInContext(`
-    for (const name of ['playKick','playSnare','playHiHat','playGhostSnare','playBass','playMysticalSub','playSynthLead','playSurgeSpark']) {
+    for (const name of ['playKick','playSnare','playHiHat','playGhostSnare','playBass','playMysticalSub','playSynthLead','playSurgeSpark','playProductionVoice','playCyberSample']) {
       const record = (...args) => scoreEvents.push({ instrument:name, step:stepIndex, time:args[0], args:args.slice(1) });
       eval(name + ' = record');
     }
@@ -130,19 +130,26 @@ function habitat({ scoreOnly = false } = {}) {
     advance(seconds) { const ctx = sandbox.inspectAudio().context; ctx.advance(seconds); for (const fn of [...intervals.values()]) fn(); } };
 }
 
-test('Noetic Surge has high-register stereo bursts, subdivisions and strong dynamic contrast', async () => {
+test('Noetic Surge has electronic twinkles and dynamic waves above a straight trance pulse', async () => {
   const h = habitat({ scoreOnly:true });
   h.click('amplifier','NOETIC_SURGE'); await settle();
   const levels = [];
   const stepSeconds = 15 / h.arrangement().bpm;
   for (let tick=0; tick<150; tick++) { h.advance(stepSeconds); levels.push(h.arrangement().leadLevel); }
   const sparks = h.scoreEvents.filter(e => e.instrument === 'playSurgeSpark');
+  assert.equal(h.scoreEvents.filter(e => e.instrument === 'playHiHat').length, 0, 'Surge must not schedule cymbals');
+  assert.ok(sparks.every(e => e.args[2] >= .27), 'Electronic sparkles should sit forward in the mix');
   assert.ok(sparks.length > 140, 'The surge needs rapid pitched bursts, not just more hats');
-  assert.ok(new Set(sparks.map(e => e.args[0])).size > 30, 'Bursts should move through many pitches');
+  assert.ok(new Set(sparks.map(e => e.args[0])).size >= 15, 'Twinkles should develop across pitches and harmonic changes');
   assert.ok(Math.min(...sparks.map(e => e.args[3])) < -.5 && Math.max(...sparks.map(e => e.args[3])) > .5);
   assert.ok(Math.max(...levels) / Math.min(...levels) > 3, 'Pressure waves need audible dynamic contrast');
   assert.ok(sparks.some((e,i) => i && e.step === sparks[i-1].step && e.time > sparks[i-1].time), 'Bursts must subdivide the sixteenth-note grid');
-  assert.ok(h.scoreEvents.some(e => e.instrument === 'playMysticalSub'), 'Keep the sub-bass foundation');
+  assert.ok(h.scoreEvents.some(e => e.instrument === 'playProductionVoice' && e.args[2] === 'sub'));
+  assert.equal(h.scoreEvents.filter(e => e.instrument === 'playMysticalSub').length, 0);
+  const firstBarKicks = h.scoreEvents.filter(e => e.instrument === 'playKick' && e.step < 16).map(e => e.step);
+  assert.deepEqual(Array.from(firstBarKicks), [0,4,8,12], 'Surge must use a straight electronic pulse, not D&B breaks');
+  assert.ok(h.scoreEvents.some(e => e.instrument === 'playProductionVoice' && e.args[2] === 'glass'));
+  assert.ok(h.scoreEvents.some(e => e.instrument === 'playProductionVoice' && e.args[2] === 'fm'));
   for (const mode of h.groups.get('[data-amplifier]')) {
     if (mode.dataset.amplifier === 'NOETIC_SURGE') continue;
     h.scoreEvents.length = 0; mode.click(); await settle();
@@ -155,7 +162,7 @@ test('Noetic Surge has high-register stereo bursts, subdivisions and strong dyna
 test('Surge spark voices are bounded, sharply gated and released on rest', async () => {
   const h = habitat(); h.click('amplifier','NOETIC_SURGE'); await settle();
   h.inspect().context.advance(1);
-  for (const spectrum of ['VELVET','CRYSTAL']) {
+  for (const spectrum of ['LIQUID','CRYSTAL']) {
     h.click('spectrum',spectrum); await settle();
     const context = h.inspect().context;
     const before = context.nodes.length;
@@ -194,7 +201,7 @@ test('every biodynamic develops for 42 audio seconds without a short arrangement
     assert.equal(chapters.size, 6);
     const signatures = [];
     for (let start = 0; start + 32 < h.inspect().step; start += 32) {
-      const phrase = h.scoreEvents.filter(e => e.instrument === 'playSynthLead' && e.step >= start && e.step < start + 32)
+      const phrase = h.scoreEvents.filter(e => ['playSynthLead','playProductionVoice','playCyberSample'].includes(e.instrument) && e.step >= start && e.step < start + 32)
         .map(e => [e.step - start, ...e.args]);
       signatures.push(JSON.stringify(phrase));
     }
@@ -205,7 +212,7 @@ test('every biodynamic develops for 42 audio seconds without a short arrangement
     assert.equal(h.inspect().context.state, 'running');
     assert.equal(h.intervals.size, 1);
   }
-  assert.equal(harmonyPaths.size, 11, 'Every biodynamic needs its own harmonic journey');
+  assert.equal(harmonyPaths.size, 14, 'Every biodynamic needs its own harmonic journey');
   assert.equal(h.errors.length, 0);
 });
 
@@ -237,8 +244,8 @@ test('42-second audio clock survives rest, tempo changes and context reconstruct
   assert.equal(h.errors.length, 0);
 });
 
-test('all eleven audio graphs remain playable across a full arrangement and its boundary', async () => {
-  for (const spectrum of ['VELVET', 'CRYSTAL']) {
+test('all fourteen audio graphs remain playable across a full arrangement and its boundary', async () => {
+  for (const spectrum of ['LIQUID', 'CRYSTAL']) {
     const h = habitat(); h.click('spectrum', spectrum);
     for (const mode of h.groups.get('[data-amplifier]')) {
       mode.click(); await settle();
@@ -288,7 +295,7 @@ test('Emerge | Rest starts and rests the biodynamic repeatedly', async () => {
   assert.equal(h.errors.length, 0);
 });
 
-test('all biodynamics remain playable through 176 switches with one context and one clock', async () => {
+test('all biodynamics remain playable through repeated mode switches with one context and one clock', async () => {
   const h = habitat();
   const modes = h.groups.get('[data-amplifier]');
   for (let pass = 0; pass < 4; pass++) for (const spectrum of h.groups.get('[data-spectrum]')) for (const mode of modes) {
@@ -439,4 +446,66 @@ test('hyperdynamic interval controls transitions independently of tempo', async 
   h.element('generate-track').click(); await settle();
   assert.equal(h.track().interval, 3);
   assert.equal(h.intervals.size, 1);
+});
+
+
+test('production grooves have distinct kick patterns and supporting modes never add a second bass lane', async () => {
+  const h = habitat({ scoreOnly:true });
+  const signatures = new Set();
+  for (const mode of ['EXURSIVE_FLOW','HYPERFOCUS_LENS','DIVERGENCE_ENGINE','PHASEWEAVE','AETHERFLUX','METAMORPHIC_PULSE','VIRIDION','HYPERASTRA','PRISM_BREAKS','VELVET_CIRCUIT','AXIOM_BLOOM']) {
+    h.scoreEvents.length = 0;
+    h.click('amplifier',mode); await settle();
+    for (let i=0;i<15;i++) h.advance(15 / h.arrangement().bpm);
+    signatures.add(JSON.stringify(h.scoreEvents.filter(e => e.instrument === 'playKick').map(e => e.step)));
+    assert.ok(h.scoreEvents.some(e => e.instrument === 'playProductionVoice'), mode + ' must have pitched production voices');
+  }
+  assert.ok(signatures.size >= 8, 'Genres need rhythmically distinct foundations');
+  for (const input of h.groups.get('[data-track-mode]')) input.checked = ['VELVET_CIRCUIT','PRISM_BREAKS','AXIOM_BLOOM'].includes(input.dataset.trackMode);
+  h.element('generate-track').click(); await settle();
+  h.scoreEvents.length = 0;
+  for (let i=0;i<16;i++) h.advance(15 / h.arrangement().bpm);
+  assert.equal(h.scoreEvents.filter(e => e.instrument === 'playBass' || e.instrument === 'playMysticalSub').length, 0);
+  assert.ok(h.scoreEvents.filter(e => e.instrument === 'playProductionVoice' && e.args[2] === 'sub').length <= 5);
+  assert.equal(h.errors.length, 0);
+});
+
+test('FM production voices retain centered bass, stereo layers and bounded voice cleanup', async () => {
+  const h = habitat(); h.click('amplifier','VELVET_CIRCUIT'); await settle();
+  for (let i=0;i<80;i++) h.advance(.12);
+  const ctx = h.inspect().context;
+  assert.ok(ctx.nodes.some(n => n.pan.value < -.2));
+  assert.ok(ctx.nodes.some(n => n.pan.value > .2));
+  assert.ok(h.inspect().voiceCount <= 22);
+  h.element('awaken').click(); await settle();
+  assert.equal(h.inspect().voiceCount, 0);
+  assert.equal(h.intervals.size, 0);
+  assert.equal(h.errors.length, 0);
+});
+
+
+test('Noetic Hyperflux retains its D&B kick pattern', async () => {
+  const h = habitat({ scoreOnly:true });
+  h.click('amplifier','NOETIC_HYPERFLUX'); await settle();
+  for (let i=0;i<15;i++) h.advance(15 / h.arrangement().bpm);
+  assert.deepEqual(Array.from(h.scoreEvents.filter(e => e.instrument === 'playKick'), e => e.step), [0,3,8,11,14]);
+  assert.equal(h.arrangement().bpm, 174);
+});
+
+
+test('Polyattention uses only fluid crystal samples with stochastic, non-melodic variation', async () => {
+  const h = habitat({ scoreOnly:true }); h.click('amplifier','POLYATTENTION'); await settle();
+  for (let i=0;i<160;i++) h.advance(15 / h.arrangement().bpm);
+  const samples = h.scoreEvents.filter(e => e.instrument === 'playCyberSample');
+  assert.ok(samples.length > 160);
+  assert.equal(new Set(samples.map(e => e.step)).size, 161, 'Every sequencer tick must carry a chime, without random silent gaps');
+  assert.equal(h.scoreEvents.length, samples.length, 'No drums, percussion, bass oscillator or sustained synth voices');
+  const patterns = [];
+  for (let bar=0;bar<4;bar++) patterns.push(JSON.stringify(Array.from(samples.filter(e => Math.floor(e.step / 16) === bar), e => e.step % 16)));
+  assert.equal(new Set(patterns).size, 4);
+  assert.ok(new Set(samples.map(e => e.args[0])).size === 4);
+  assert.ok(new Set(samples.map(e => e.args[3])).size > 50, 'Sample tuning must vary continuously rather than follow scale degrees');
+  assert.ok(samples.some(e => Math.abs(e.args[3] / 100 - Math.round(e.args[3] / 100)) > .1));
+  assert.ok(samples.some(e => e.args[2] < -.5) && samples.some(e => e.args[2] > .5));
+  assert.ok(samples.some((e,i) => i && e.step === samples[i-1].step && e.time > samples[i-1].time));
+  assert.equal(h.errors.length, 0);
 });

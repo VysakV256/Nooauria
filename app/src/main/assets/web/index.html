@@ -129,11 +129,14 @@
       <button type="button" data-amplifier="VIRIDION">VIRIDION</button>
       <button type="button" data-amplifier="HYPERASTRA">HYPERASTRA</button>
       <button type="button" class="active" data-amplifier="NOETIC_HYPERFLUX">NOETIC HYPERFLUX</button>
+      <button type="button" data-amplifier="PRISM_BREAKS">PRISM BREAKS</button>
+      <button type="button" data-amplifier="VELVET_CIRCUIT">VELVET CIRCUIT</button>
+      <button type="button" data-amplifier="AXIOM_BLOOM">AXIOM BLOOM</button>
     </div>
     <details class="track-composer">
       <summary>STOCHASTIC TRACK COMPOSER</summary>
-      <p>Combine hyperfluxes into a new journey. One rhythm foundation meets up to two shifting voices in short hyperdynamics. Generate a new combination every 3 seconds, or set your own interval. Emerge / Rest pauses and resumes.</p>
-      <div class="track-pool" aria-label="Hyperfluxes available for generation"><label><input type="checkbox" data-track-mode="NOETIC_SURGE" checked>Noetic Surge</label><label><input type="checkbox" data-track-mode="POLYATTENTION" checked>Polyattention</label><label><input type="checkbox" data-track-mode="EXURSIVE_FLOW" checked>Exursive Flow</label><label><input type="checkbox" data-track-mode="HYPERFOCUS_LENS" checked>Hyperfocus Lens</label><label><input type="checkbox" data-track-mode="DIVERGENCE_ENGINE" checked>Divergence Engine</label><label><input type="checkbox" data-track-mode="PHASEWEAVE" checked>Phaseweave</label><label><input type="checkbox" data-track-mode="AETHERFLUX" checked>Aetherflux</label><label><input type="checkbox" data-track-mode="METAMORPHIC_PULSE" checked>Metamorphic Pulse</label><label><input type="checkbox" data-track-mode="VIRIDION" checked>Viridion</label><label><input type="checkbox" data-track-mode="HYPERASTRA" checked>Hyperastra</label><label><input type="checkbox" data-track-mode="NOETIC_HYPERFLUX" checked>Noetic Hyperflux</label></div>
+      <p>Combine hyperfluxes into a new journey. Produced EDM / IDM hyperdynamics: a focused low end, swung percussion, recurring hooks and evolving stereo textures. Generate a new combination every 3 seconds, or set your own interval. Emerge / Rest pauses and resumes.</p>
+      <div class="track-pool" aria-label="Hyperfluxes available for generation"><label><input type="checkbox" data-track-mode="NOETIC_SURGE" checked>Noetic Surge</label><label><input type="checkbox" data-track-mode="POLYATTENTION" checked>Polyattention</label><label><input type="checkbox" data-track-mode="EXURSIVE_FLOW" checked>Exursive Flow</label><label><input type="checkbox" data-track-mode="HYPERFOCUS_LENS" checked>Hyperfocus Lens</label><label><input type="checkbox" data-track-mode="DIVERGENCE_ENGINE" checked>Divergence Engine</label><label><input type="checkbox" data-track-mode="PHASEWEAVE" checked>Phaseweave</label><label><input type="checkbox" data-track-mode="AETHERFLUX" checked>Aetherflux</label><label><input type="checkbox" data-track-mode="METAMORPHIC_PULSE" checked>Metamorphic Pulse</label><label><input type="checkbox" data-track-mode="VIRIDION" checked>Viridion</label><label><input type="checkbox" data-track-mode="HYPERASTRA" checked>Hyperastra</label><label><input type="checkbox" data-track-mode="NOETIC_HYPERFLUX" checked>Noetic Hyperflux</label><label><input type="checkbox" data-track-mode="PRISM_BREAKS" checked>Prism Breaks</label><label><input type="checkbox" data-track-mode="VELVET_CIRCUIT" checked>Velvet Circuit</label><label><input type="checkbox" data-track-mode="AXIOM_BLOOM" checked>Axiom Bloom</label></div>
       <div class="track-options">
         <label>Length <select id="track-length"><option value="126">2:06</option><option value="252" selected>4:12</option><option value="378">6:18</option></select></label>
         <label>Interval (seconds) <input id="track-interval" type="number" min="0.5" max="42" step="0.5" value="3"></label>
@@ -155,7 +158,7 @@
     </div>
     <div class="spectral-lab" aria-label="Spectral laboratory">
       <div class="spectrum-types">
-        <button type="button" class="active" data-spectrum="VELVET">VELVET</button>
+        <button type="button" class="active" data-spectrum="LIQUID">LIQUID</button>
         <button type="button" data-spectrum="CRYSTAL">CRYSTAL</button>
         <button type="button" data-spectrum="CELLULAR">CELLULAR</button>
         <button type="button" data-spectrum="FERAL">FERAL</button>
@@ -207,6 +210,8 @@
     let audioCtx = null;
     let crystalLeadWave = null;
     let masterGain = null;
+    let productionBus = null;
+    let crystalEcho = null;
     let filterNode = null;
     let eqLowNode = null;
     let eqMidNode = null;
@@ -328,7 +333,7 @@
       particleDensity: 300,
       bloomIntensity: 0.8,
       waveShape: 'triangle',
-      spectrumMode: 'VELVET',
+      spectrumMode: 'LIQUID',
       resonance: 0.24,
       mutationDepth: 0.58,
       generativeEnabled: false,
@@ -399,6 +404,17 @@
 
       masterGain = audioCtx.createGain();
       masterGain.gain.value = 0.28;
+      // Harmonic voices duck beneath the kick; percussion retains its transient.
+      productionBus = audioCtx.createGain();
+      productionBus.gain.value = .8;
+      productionBus.connect(masterGain);
+      crystalEcho = audioCtx.createDelay();
+      crystalEcho.delayTime.value = 45 / state.bpm;
+      const echoFilter = audioCtx.createBiquadFilter();
+      echoFilter.type = 'highpass'; echoFilter.frequency.value = 900;
+      const echoReturn = audioCtx.createGain(); echoReturn.gain.value = .22;
+      crystalEcho.connect(echoFilter); echoFilter.connect(echoReturn);
+      echoReturn.connect(productionBus); echoReturn.connect(crystalEcho);
 
       filterNode = audioCtx.createBiquadFilter();
       filterNode.type = 'lowpass';
@@ -563,8 +579,11 @@
     // Six seven-second chapters, with a distinct harmonic journey and melodic vocabulary per being.
     // The short percussion cells remain the pulse, not the length of the composition.
     const arrangementScores = {
+      AXIOM_BLOOM: { harmony:[0,3,7,5,-2,0], motif:[0,2,4,1,3,2,0,4,2,1,3,0], stride:3, register:1 },
+      VELVET_CIRCUIT: { harmony:[0,-2,5,7,3,0], motif:[0,2,4,1,3,2,0,4,2,1,3,0], stride:3, register:1 },
+      PRISM_BREAKS: { harmony:[0,5,-2,7,1,3], motif:[0,2,4,1,3,2,0,4,2,1,3,0], stride:3, register:1 },
       NOETIC_SURGE:      { harmony:[0,-2,3,-5,7,0], motif:[0,5,1,8,3,10,2,7,4,11,6,9], stride:1, register:3 },
-      POLYATTENTION:     { harmony:[0,3,-2,5,1,7], motif:[0,4,1,7,2,9,5,3,11,6,10,8], stride:3, register:1.5 },
+      POLYATTENTION:     { harmony:[0,7,4,9,5,2], motif:[0,4,1,7,2,9,5,3,11,6,10,8], stride:3, register:1.5 },
       EXURSIVE_FLOW:     { harmony:[0,5,3,8,7,2], motif:[0,2,5,3,7,4,9,6,11,8,10,5], stride:3, register:1 },
       HYPERFOCUS_LENS:   { harmony:[0,0,5,2,7,0], motif:[0,2,0,4,0,5,2,0,7,4,2,0], stride:4, register:1 },
       DIVERGENCE_ENGINE: { harmony:[0,1,5,-2,8,3], motif:[0,3,7,1,5,9,2,6,11,4,8,10], stride:3, register:1.25 },
@@ -673,7 +692,7 @@
       whiteNoise.stop(time + (open ? 0.12 : 0.04));
     }
 
-    function playSnare(time) {
+    function playSnare(time, level = 1) {
       const voice = reserveVoice(.16);
       if (!voice) return;
       const osc = audioCtx.createOscillator();
@@ -683,7 +702,7 @@
       osc.type = surge ? 'triangle' : (state.waveShape === 'sine' ? 'sine' : (state.genre === 'CYBERPUNK_TRANCE' ? 'sawtooth' : 'triangle'));
       osc.frequency.setValueAtTime(surge ? 285 : 170, time);
       osc.frequency.exponentialRampToValueAtTime(surge ? 115 : 75, time + (surge ? .055 : .09));
-      gain.gain.setValueAtTime(0.2, time);
+      gain.gain.setValueAtTime(0.2 * level, time);
       gain.gain.exponentialRampToValueAtTime(0.005, time + 0.12);
 
       osc.connect(gain);
@@ -691,7 +710,7 @@
       osc.start(time);
       osc.stop(time + 0.12);
 
-      playHiHat(time, true);
+      if (!surge && state.amplifierMode !== 'POLYATTENTION') playHiHat(time, true);
     }
 
     function playGhostSnare(time, level = .42) {
@@ -717,18 +736,291 @@
       source.stop(time + .06);
     }
 
+    // A shared production vocabulary gives each alliance roles rather than three full mixes.
+    const productionStyles = {
+      NOETIC_SURGE: { groove:'surge', label:'Atlantean liquid-crystal electronica', tone:'glass', swing:0.02, density:0.85 },
+      NOETIC_HYPERFLUX: { groove:'dnb', label:'Neuro drum & bass', tone:'glass', swing:0.055, density:0.7 },
+      POLYATTENTION: { groove:'footwork', label:'Atlantean crystal streams / fluid cyberutopia', tone:'cyber', swing:0.11, density:0.7 },
+      EXURSIVE_FLOW: { groove:'dub', label:'Dub techno', tone:'pluck', swing:0.06, density:0.6 },
+      HYPERFOCUS_LENS: { groove:'micro', label:'Microhouse', tone:'pluck', swing:0.1, density:0.4 },
+      DIVERGENCE_ENGINE: { groove:'wonky', label:'Wonky / glitch-hop', tone:'fm', swing:0.19, density:0.8 },
+      PHASEWEAVE: { groove:'garage', label:'UK garage / 2-step', tone:'glass', swing:0.18, density:0.6 },
+      AETHERFLUX: { groove:'ambient', label:'Ambient / illbient', tone:'warm', swing:0.1, density:0.3 },
+      METAMORPHIC_PULSE: { groove:'acid', label:'Acid / psy-breaks', tone:'fm', swing:0.04, density:0.8 },
+      VIRIDION: { groove:'broken', label:'Broken beat / organic house', tone:'warm', swing:0.14, density:0.5 },
+      HYPERASTRA: { groove:'dubstep', label:'Deep dubstep', tone:'glass', swing:0.06, density:0.4 },
+      PRISM_BREAKS: { groove:'braindance', label:'Braindance / drill edits', tone:'fm', swing:0.13, density:0.75 },
+      VELVET_CIRCUIT: { groove:'house', label:'Deep house', tone:'warm', swing:0.12, density:0.5 },
+      AXIOM_BLOOM: { groove:'electro', label:'Melodic electro', tone:'glass', swing:0.06, density:0.65 }
+    };
+
+    function playProductionVoice(time, hz, duration, tone = 'pluck', level = .1, pan = 0) {
+      const liquid = state.spectrumMode === 'LIQUID' && tone !== 'sub' && tone !== 'acid';
+      if (liquid) duration *= 1.4;
+      const wait = Math.max(0, time - audioCtx.currentTime);
+      const voice = reserveVoice(wait + duration + .05);
+      if (!voice) return;
+      const carrier = audioCtx.createOscillator();
+      const color = audioCtx.createOscillator();
+      const colorGain = audioCtx.createGain();
+      const filter = audioCtx.createBiquadFilter();
+      const envelope = audioCtx.createGain();
+      const stereo = audioCtx.createStereoPanner();
+      trackVoice(voice, [carrier, color], [colorGain, filter, envelope, stereo]);
+      const bass = tone === 'sub';
+      const warm = tone === 'warm';
+      const cyber = tone === 'cyber';
+      carrier.type = bass || tone === 'fm' || tone === 'glass' || cyber ? 'sine' : 'sawtooth';
+      carrier.frequency.setValueAtTime(hz, time);
+      color.type = warm ? 'sawtooth' : 'sine';
+      color.frequency.setValueAtTime(hz * (bass ? 2 : warm ? 1 : cyber ? 2.01 : tone === 'glass' ? 3 : 2), time);
+      color.detune.value = warm ? 7 : 0;
+      colorGain.gain.setValueAtTime(warm ? .28 : hz * (bass ? .14 : cyber ? 3.1 : tone === 'fm' ? 2.2 : .65), time);
+      colorGain.gain.exponentialRampToValueAtTime(warm ? .12 : .01, time + duration * .85);
+      color.connect(colorGain);
+      if (warm) colorGain.connect(filter);
+      else colorGain.connect(carrier.frequency);
+      filter.type = cyber ? 'bandpass' : 'lowpass';
+      filter.frequency.setValueAtTime(cyber ? Math.min(7000, hz * 5) : bass ? 550 : tone === 'acid' ? 2800 : warm ? 2200 : 6800, time);
+      filter.frequency.exponentialRampToValueAtTime(cyber ? Math.max(300, hz * 1.2) : bass ? 140 : warm ? 650 : 1200, time + duration);
+      filter.Q.value = cyber ? 4.5 : bass ? .7 : tone === 'acid' ? 5 : 1.1;
+      envelope.gain.setValueAtTime(.0001, time);
+      envelope.gain.linearRampToValueAtTime(level, time + (liquid ? .014 : warm ? .018 : .004));
+      envelope.gain.exponentialRampToValueAtTime(.0001, time + duration);
+      stereo.pan.value = bass ? 0 : pan;
+      if (liquid) stereo.pan.linearRampToValueAtTime(Math.max(-.8, Math.min(.8, pan + Math.sin(time * .7) * .3)), time + duration);
+      carrier.connect(filter); filter.connect(envelope); envelope.connect(stereo); stereo.connect(productionBus);
+      if (['NOETIC_SURGE','POLYATTENTION'].includes(state.amplifierMode) && !bass && tone !== 'acid') stereo.connect(crystalEcho);
+      carrier.start(time); color.start(time);
+      carrier.stop(time + duration + .01); color.stop(time + duration + .01);
+    }
+
+    const cyberSampleCache = new Map();
+    function playCyberSample(time, kind, level = .24, pan = 0, cents = 0) {
+      // Render pitched electronic one-shots once, then chop and resequence the buffers.
+      // These contain no drum recordings or noise-based percussion.
+      const lengths = [.32,.42,.26,.5];
+      const liquid = state.spectrumMode === 'LIQUID';
+      const length = lengths[kind % 4] * (liquid ? 1.65 : 1);
+      const key = `${audioCtx.sampleRate}:${kind % 4}:${liquid}`;
+      let buffer = cyberSampleCache.get(key);
+      if (!buffer) {
+        buffer = audioCtx.createBuffer(1, Math.ceil(audioCtx.sampleRate * length), audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        let phase = 0;
+        for (let i = 0; i < data.length; i++) {
+          const t = i / audioCtx.sampleRate, u = t / length;
+          // Soft crystalline partials and liquid FM: continuous drift, no fixed melody.
+          const identity = kind % 4;
+          const base = [880,1173,1567,698][identity];
+          const bend = 1 + .005 * Math.sin(t * 13 + identity) + .009 * Math.sin(u * Math.PI);
+          phase += 2 * Math.PI * base * bend / audioCtx.sampleRate;
+          const fm = Math.sin(phase * 2.003) * .38 * Math.exp(-u * 7);
+          const fundamental = Math.sin(phase + fm) * .66;
+          const shimmer = .16 * Math.sin(phase * 2.012) * Math.exp(-u * 3)
+            + .075 * Math.sin(phase * 3.978) * Math.exp(-u * 6)
+            + .035 * Math.sin(phase * 5.031) * Math.exp(-u * 9);
+          const attack = Math.sin(Math.min(1, t / .008) * Math.PI / 2);
+          data[i] = (fundamental + shimmer) * attack * Math.pow(1-u, 2.6);
+
+        }
+        cyberSampleCache.set(key, buffer);
+      }
+      const voice = reserveVoice(Math.max(0, time - audioCtx.currentTime) + length * 2 + .05);
+      if (!voice) return;
+      const source = audioCtx.createBufferSource(); source.buffer = buffer;
+      source.detune.value = cents;
+      const gain = audioCtx.createGain(); gain.gain.value = level;
+      const stereo = audioCtx.createStereoPanner(); stereo.pan.value = pan;
+      const liquidFilter = audioCtx.createBiquadFilter();
+      liquidFilter.type = 'lowpass'; liquidFilter.Q.value = liquid ? 1.6 : .7;
+      liquidFilter.frequency.setValueAtTime(liquid ? 2600 + Math.sin(time * .8) * 900 : 12000, time);
+      if (liquid) {
+        liquidFilter.frequency.linearRampToValueAtTime(6200, time + length * .35);
+        liquidFilter.frequency.exponentialRampToValueAtTime(1900, time + length);
+        stereo.pan.setValueAtTime(pan, time);
+        stereo.pan.linearRampToValueAtTime(Math.max(-.85, Math.min(.85, pan + Math.sin(time) * .3)), time + length);
+      }
+      trackVoice(voice, [source], [gain, liquidFilter, stereo]);
+      source.connect(liquidFilter); liquidFilter.connect(gain); gain.connect(stereo); stereo.connect(masterGain);
+      source.start(time); source.stop(time + length * 2);
+    }
+
+    function playPolySampleBreaks(step, time, sixteenth, seed, elapsed, fade) {
+      // A guaranteed chime on every tick sustains the stream; colour and ripples remain stochastic.
+      {
+        const kind = Math.floor(Math.random() * 4);
+        const cents = -180 + Math.random() * 540;
+        const pan = Math.sin(elapsed * .63 + kind * 1.7) * .72;
+        const repeats = 1 + Math.floor(Math.random() * 2);
+        const spacing = sixteenth * (.65 + Math.random() * .6);
+        for (let packet = 0; packet < repeats; packet++) {
+          playCyberSample(time + packet * spacing, kind, (.24 + Math.random() * .08) * fade / (1 + packet * .6),
+            Math.max(-.85, Math.min(.85, pan + packet * .12)), cents + packet * (Math.random() - .5) * 24);
+        }
+      }
+      if (Math.random() < .24) {
+        playCyberSample(time + sixteenth * (.15 + Math.random() * .65), Math.floor(Math.random() * 4),
+          .13 * fade, Math.sin(elapsed * .41 + 2) * .75, -180 + Math.random() * 540);
+      }
+    }
+
+    function playProducedHyperdynamic(step, now) {
+      const section = generatedTrack ? generatedTrack.sections[generatedTrack.section] : { foundation:state.amplifierMode, layers:[], mutation:0 };
+      const style = productionStyles[section.foundation];
+      const bar = Math.floor(stepIndex / 16);
+      const sixteenth = 15 / Math.max(60, state.bpm);
+      const time = now + (step % 2 ? sixteenth * style.swing : 0);
+      const variation = generatedTrack?.variation ?? .6;
+      // Repeat a recognizable cell; mutations happen in chosen slots, not every note.
+      const seed = section.mutation || 0;
+      const chance = slot => {
+        const x = Math.sin((bar * 31 + slot * 17 + seed * 13) * 12.9898) * 43758.5453;
+        return x - Math.floor(x);
+      };
+      const elapsed = arrangementTime();
+      const progress = generatedTrack ? elapsed / generatedTrack.duration : (elapsed % 42) / 42;
+      if (section.foundation === 'POLYATTENTION') {
+        const sampleFade = generatedTrack ? Math.min(1, Math.max(.01, (generatedTrack.duration - elapsed) / 2)) : 1;
+        playPolySampleBreaks(step, time, sixteenth, seed, elapsed, sampleFade);
+        return;
+      }
+      const breakdown = progress > .46 && progress < .57;
+      const outro = progress > .92;
+      const drive = breakdown ? .35 : outro ? .65 : 1;
+      const fade = generatedTrack ? Math.min(1, Math.max(.01, (generatedTrack.duration - elapsed) / 2)) : 1;
+      currentArrangement.bassLevel = drive * (style.groove === 'surge' ? .48 : .9) * fade;
+      currentArrangement.hatLevel = (step % 4 === 2 ? .9 : .48) * drive * fade;
+      const grooves = {
+        surge: { kick:[0,4,8,12], snare:[4,12], bass:[2,6,10,14], hats:[2,6,10,14], lead:[0,2,4,6,8,10,12,14] },
+        dnb: { kick:[0,3,8,10], snare:[4,12], bass:[1,6,9,14], hats:[0,2,3,6,7,8,10,11,14,15], lead:[0,2,6,8,10,14] },
+        footwork: { kick:[0,3,6,8,11,14], snare:[4,10,12], bass:[0,3,7,10,14], hats:[1,4,7,9,12,15], lead:[0,3,6,10,13] },
+        dub: { kick:[0,4,8,12], snare:[4,12], bass:[2,10], hats:[2,6,10,14], lead:[2,10] },
+        micro: { kick:[0,4,8,12], snare:[12], bass:[3,6,11], hats:[2,5,6,10,13,14], lead:[1,6,11] },
+        wonky: { kick:[0,7,10], snare:[4,13], bass:[1,7,11,15], hats:[1,3,6,9,11,14], lead:[0,3,7,10,14] },
+        garage: { kick:[0,6,10], snare:[4,12], bass:[2,7,10,15], hats:[1,3,5,7,9,11,13,15], lead:[1,6,9,14] },
+        ambient: { kick:[0], snare:[], bass:[0], hats:[6,14], lead:[0,9] },
+        acid: { kick:[0,4,8,12], snare:[4,12], bass:[1,2,3,5,7,9,10,11,13,15], hats:[2,6,10,14], lead:[0,5,10] },
+        broken: { kick:[0,3,9,14], snare:[4,11], bass:[2,6,10,13], hats:[2,5,7,10,13,15], lead:[0,3,8,11,14] },
+        dubstep: { kick:[0,10], snare:[8], bass:[1,6,11], hats:[2,5,6,10,13,14], lead:[0,7,12] },
+        braindance: { kick:[0,5,8,11], snare:[4,12], bass:[1,4,7,10,15], hats:[0,2,3,5,7,8,10,11,13,15], lead:[0,3,5,8,11,14] },
+        house: { kick:[0,4,8,12], snare:[4,12], bass:[2,6,10,14], hats:[2,6,10,14], lead:[2,6,10,14] },
+        electro: { kick:[0,6,8,14], snare:[4,12], bass:[0,3,6,10,14], hats:[2,3,6,10,11,14], lead:[0,3,6,8,11,14] }
+      };
+      let groove = grooves[style.groove];
+      if (section.foundation === 'POLYATTENTION') {
+        // Deliberate bar-scale morphs retain a backbeat while changing the body around it.
+        const forms = [
+          { kick:[0,3,8,11], snare:[4,12], bass:[1,6,10,14], hats:[1,3,6,7,9,11,14,15], lead:[0,3,7,10,14] },
+          { kick:[0,6,10,15], snare:[4,12], bass:[2,7,11,14], hats:[0,2,5,7,8,10,13,15], lead:[1,5,8,12,15] },
+          { kick:[0,5,8,13], snare:[4,11], bass:[1,4,9,15], hats:[1,4,6,9,11,12,14], lead:[0,4,7,11,13] },
+          { kick:[0,3,7,10,14], snare:[4,12], bass:[2,6,9,13], hats:[2,3,5,7,10,11,13,15], lead:[2,5,9,12,14] }
+        ];
+        groove = forms[(bar + seed) % forms.length];
+        if (!breakdown && step >= 13 && (bar + seed) % 2) {
+          playProductionVoice(time + sixteenth * .33, 440 + (bar % 4) * 110, sixteenth * .75, 'cyber', .14 * fade, -.4);
+          if (step === 15) playProductionVoice(time + sixteenth * .66, 880, sixteenth, 'glass', .12 * fade, .5);
+        }
+      }
+      const kick = groove.kick.includes(step) && (!breakdown || step === 0);
+      if (kick) {
+        playKick(now);
+        productionBus.gain.cancelScheduledValues(now);
+        productionBus.gain.setValueAtTime(.26, now);
+        productionBus.gain.linearRampToValueAtTime(.82, now + Math.min(.18, sixteenth * 1.8));
+      }
+      if (groove.snare.includes(step)) {
+        playSnare(time, drive * fade * (style.groove === 'surge' ? .55 : 1));
+        // Two short filtered noise taps turn the tonal snare into a textured clap.
+        if (section.foundation === 'POLYATTENTION') {
+          playProductionVoice(time + .009, 330 + (bar % 3) * 55, .14, 'cyber', .18 * fade, .25);
+        } else {
+          playGhostSnare(time + .009, .62 * drive * fade);
+          playGhostSnare(time + .022, .32 * drive * fade);
+        }
+      }
+      if (section.foundation === 'POLYATTENTION' && !breakdown && groove.hats.includes(step)) {
+        playProductionVoice(time, 660 * Math.pow(2, ((step + bar * 3) % 7) / 12), sixteenth * .8, 'cyber', .13 * fade, step % 3 ? -.5 : .5);
+      } else if (style.groove !== 'surge' && section.foundation !== 'POLYATTENTION' && !breakdown && groove.hats.includes(step)) playHiHat(time, step === 6 || step === 14);
+      if (section.foundation !== 'POLYATTENTION' && bar % 4 === 3 && step >= 14 && chance(step) < variation) {
+        playGhostSnare(time, .32 * drive * fade);
+        if (['braindance','dnb'].includes(style.groove)) playGhostSnare(time + sixteenth * .5, .2 * fade);
+      }
+      // One mono bass lane and one shared minor-pentatonic harmony across all modes.
+      const semitones = style.groove === 'surge' ? [0,2,4,7,9] : [0,3,5,7,10];
+      const score = arrangementScores[section.foundation];
+      const root = 65.406 * Math.pow(2, score.harmony[Math.floor(elapsed / 7) % 6] / 12);
+      const note = degree => root * Math.pow(2, (semitones[((degree % 5) + 5) % 5] + Math.floor(degree / 5) * 12) / 12);
+      const bassSteps = groove.bass;
+      if (!breakdown && bassSteps.includes(step)) playProductionVoice(time, root * (step === 14 && bar % 2 ? 1.5 : 1), sixteenth * (style.groove === 'acid' ? .72 : style.groove === 'ambient' ? 7 : 1.45), style.groove === 'acid' ? 'acid' : 'sub', (style.groove === 'surge' ? .11 : .2) * drive * fade);
+      const motif = [0,2,4,1,3,2,0,4];
+      const slot = Math.floor(step / 2);
+      if (groove.lead.includes(step) && chance(slot) < style.density + .15 && (!outro || step % 4 === 0)) {
+        const degree = motif[(slot + Math.floor(bar / 2) + seed) % motif.length];
+        playProductionVoice(time, note(degree) * 4, sixteenth * (breakdown ? 3.5 : 1.65), style.tone, .095 * fade, Math.sin(slot * 1.7) * .38);
+      }
+      if (style.groove === 'surge') {
+        const energy = currentArrangement.surgeEnergy ?? .6;
+        const climb = (step + bar * 3) % 10;
+        // A broad rising FM voice answers a fast, light constellation of bells.
+        if (step % 4 === 0) {
+          playProductionVoice(time, note(climb % 5) * 2, sixteenth * 3.6, 'fm', (.035 + energy * .065) * fade, Math.sin(bar + step) * .3);
+          if (state.spectrumMode === 'CRYSTAL') playSynthLead(time, note(climb % 5) * 4, .025, .035 * fade);
+        }
+        const fragments = energy > .55 ? 3 : 2;
+        for (let fragment = 0; fragment < fragments; fragment++) {
+          const sparkleTime = time + sixteenth * fragment / fragments;
+          const pitch = note((climb + fragment * 2) % 10) * 8;
+          playSurgeSpark(sparkleTime, pitch, .026, (.27 + energy * .36) * fade,
+            ((step + fragment * 3 + bar) % 9 - 4) / 5);
+        }
+        if (step % 2 === 1) playProductionVoice(time, note((climb + 2) % 5) * 8,
+          sixteenth * 2.8, 'glass', (.30 + energy * .27) * fade, step % 4 === 1 ? -.6 : .6);
+      }
+      if (section.foundation === 'POLYATTENTION') playPolyEmergence(time, note, sixteenth, fade, seed, elapsed);
+      // Supporting modes supply timbre and counterpoint, never extra kick/sub lanes.
+      section.layers.forEach((mode, index) => {
+        const layer = productionStyles[mode];
+        if (mode === 'POLYATTENTION') {
+          playPolySampleBreaks(step, time, sixteenth, seed, elapsed, fade * .4);
+          return;
+        }
+        const offset = index === 0 ? 3 : 7;
+        if ((step + offset) % 8 === 0) {
+          const degree = motif[(bar + index + seed) % motif.length];
+          playProductionVoice(time, note(degree) * (index ? 8 : 2), sixteenth * (index ? 2 : 4), layer.tone, (index ? .035 : .05) * fade, index ? .62 : -.55);
+        }
+      });
+      if (step === 0 || (style.tone === 'warm' && step === 8)) {
+        for (const degree of [0,2,4]) playProductionVoice(time, note(degree) * 2, sixteenth * 3.5, 'warm', .026 * fade, (degree - 2) * .22);
+      }
+    }
+
+    function playPolyEmergence(time, note, sixteenth, fade, seed, elapsed) {
+      const emergence = Math.min(2, Math.floor((elapsed % 42) / .65));
+      // Independent clocks produce transient coalitions without restarting at bar lines.
+      [5,7,11].forEach((period, agent) => {
+        if (agent > Math.min(2, emergence) || (stepIndex + seed + agent * 2) % period !== 0) return;
+        const generation = Math.floor(stepIndex / period);
+        const degree = (generation * (agent + 1) + agent * 2) % 8;
+        playProductionVoice(time + agent * sixteenth * .12, note(degree) * (agent === 2 ? 8 : 2),
+          sixteenth * [1.4,2.2,3.1][agent], agent === 1 && Math.floor(elapsed / 3) % 2 ? 'glass' : 'cyber',
+          [.18,.14,.11][agent] * fade, [-.65,.6,-.2][agent]);
+      });
+    }
+
     // One D&B pulse, many biodynamic nervous systems. Each mode reshapes the break.
     function playBiodynamicDnB(mode, step, scale, now) {
       const generation = Math.floor(stepIndex / 16);
       const root = scale[(generation * 2) % scale.length];
       const kickSteps = {
-        NOETIC_SURGE:[0,3,8,10], POLYATTENTION:[0,6,8,11,14], EXURSIVE_FLOW:[0,5,8,13],
+        POLYATTENTION:[0,6,8,11,14], EXURSIVE_FLOW:[0,5,8,13],
         HYPERFOCUS_LENS:[0,7,8,14], DIVERGENCE_ENGINE:[0,3,6,8,11,14], PHASEWEAVE:[0,5,8,11],
         AETHERFLUX:[0,8,14], METAMORPHIC_PULSE:[0,3,7,8,13], VIRIDION:[0,6,8,14],
         HYPERASTRA:[0,7,8,10,15], NOETIC_HYPERFLUX:[0,3,8,11,14]
       };
       const bassSteps = {
-        NOETIC_SURGE:[1,4,6,9,12,14], POLYATTENTION:[1,3,7,9,12,15], EXURSIVE_FLOW:[1,4,7,9,12,15],
+        POLYATTENTION:[1,3,7,9,12,15], EXURSIVE_FLOW:[1,4,7,9,12,15],
         HYPERFOCUS_LENS:[1,6,9,13], DIVERGENCE_ENGINE:[1,4,7,9,12,15], PHASEWEAVE:[1,4,6,9,12,14],
         AETHERFLUX:[1,7,9,15], METAMORPHIC_PULSE:[1,4,6,9,11,15], VIRIDION:[1,4,7,9,12,15],
         HYPERASTRA:[1,4,6,9,12,14], NOETIC_HYPERFLUX:[1,4,7,9,12,15]
@@ -744,30 +1036,6 @@
         const motion = mode === 'HYPERFOCUS_LENS' ? 0 : (step + generation * (mode === 'DIVERGENCE_ENGINE' ? 3 : 1)) % Math.min(7, scale.length);
         const depth = mode === 'AETHERFLUX' ? .25 : .5;
         playBass(now, (scale[motion] || root) * depth, mode === 'AETHERFLUX' ? .28 : .14);
-      }
-      if (mode === 'NOETIC_SURGE') {
-        // Mystical sub currents anchor a break that mutates instead of looping cleanly.
-        const mutationKick = (generation * 5 + 5) % 16;
-        const reverseKick = 15 - ((generation * 3 + 2) % 16);
-        if (step === mutationKick || (generation % 3 === 2 && step === reverseKick)) playKick(now);
-        if ([1,5,7,11,13,15].includes(step) && (step + generation) % 3 !== 0) {
-          playGhostSnare(now, .55 + ((step + generation) % 4) * .1);
-        }
-        if (state.activeSection !== 'INTRO' && (step === 0 || step === 7 || step === 11 || step === 15)) {
-          const mysticPath = [0, 5, 2, 8, 3, 10, 1];
-          const subRoot = scale[mysticPath[(generation + step) % mysticPath.length] % scale.length] * .25;
-          playMysticalSub(now, subRoot, step === 15 ? .13 : .3, [1.5, 1.333, 1.618, 2][generation % 4]);
-        }
-        const fillGate = 10 + (generation % 4);
-        if (step >= fillGate) {
-          const fracture = (step * 7 + generation * 11) % 5;
-          if (fracture !== 2) playGhostSnare(now, .4 + fracture * .12);
-          if (fracture === 0 || fracture === 4) {
-            const subdivision = 15 / Math.max(60, state.bpm);
-            playGhostSnare(now + subdivision * .5, .34 + (currentArrangement?.surgeEnergy ?? 1) * .38);
-          }
-          if (step === 15 && generation % 2) playKick(now);
-        }
       }
     }
 
@@ -873,7 +1141,7 @@
       modulator.frequency.setValueAtTime(pitch * (crystal ? 2 : 1.5), time);
       depth.gain.setValueAtTime(pitch * (crystal ? .06 : .19), time);
       depth.gain.linearRampToValueAtTime(0, time + length);
-      const peak = Math.min(.12, level) * (currentArrangement?.leadLevel ?? 1);
+      const peak = Math.min(.65, level) * (currentArrangement?.leadLevel ?? 1);
       gain.gain.setValueAtTime(0, time);
       gain.gain.linearRampToValueAtTime(peak, time + .0007);
       gain.gain.setValueAtTime(peak * .78, time + length - .003);
@@ -911,7 +1179,7 @@
           );
         }
         osc.setPeriodicWave(crystalLeadWave);
-      } else if (isSurge && state.spectrumMode === 'VELVET') {
+      } else if (isSurge && state.spectrumMode === 'LIQUID') {
         osc.type = 'triangle';
       } else if (state.waveShape) {
         osc.type = state.waveShape;
@@ -969,36 +1237,6 @@
       if (step === 0) document.getElementById('generation-readout').textContent = `generation ${String(generation).padStart(3,'0')}`;
 
       switch (mode) {
-        case 'NOETIC_SURGE': { // pressure waves fracture into high-register swarms
-          const energy = currentArrangement?.surgeEnergy ?? 1;
-          const density = 2 + Math.floor(energy * 3);
-          // Infinite perspective currents: a looping bass trajectory continually changes depth.
-          if (step % 2 === 0) {
-            const perspectiveIndex = (step / 2 + generation * 2) % scale.length;
-            const octaveDepth = [0.5, 0.75, 1, 0.5][(step / 2 + generation) % 4];
-            playBass(now, scale[perspectiveIndex] * octaveDepth, .1 + density * .018);
-          }
-          // Exursive energy fields branch away from the main line without exact return.
-          if (step % 3 === generation % 3) {
-            const exursiveIndex = (step * step + generation * 5) % scale.length;
-            playSynthLead(now, scale[exursiveIndex] * (generation % 2 ? 1.5 : 2), .11 + density * .018, .145);
-          }
-          // Uneven 32nd/triplet attacks leap across stereo space instead of piling up hiss.
-          if (energy > .3 || step % 4 === 0) {
-            const fragments = energy > .75 ? 3 : 2;
-            const spacing = (15 / Math.max(60, state.bpm)) / fragments;
-            for (let fragment = 0; fragment < fragments; fragment++) {
-              const index = (step * 5 + generation * 7 + fragment * (generation % 3 + 2)) % scale.length;
-              const register = (step + fragment + generation) % 3 === 0 ? 8 : 4;
-              playSurgeSpark(now + fragment * spacing, scale[index] * register,
-                Math.min(.04, spacing * .72), .075 + energy * .035,
-                ((step * 3 + fragment * 5 + generation) % 9 - 4) / 5);
-            }
-          }
-          // Bright chord shards punctuate the wave crests; sub currents keep the D&B weight.
-          if (energy > .68 && step % 4 === 0) playSynthLead(now, branch * 4, .045, .17);
-          break;
-        }
         case 'POLYATTENTION': { // autonomous agents occupy separate trajectories
           const agents = 2 + Math.floor(state.multiplicity * 5);
           for (let i = 0; i < agents; i++) if ((step + i * 3) % (3 + i) === 0) playSynthLead(now, scale[(step * (i + 1) + generation) % scale.length] * (1 + i * .16), .08 + i * .025);
@@ -1137,10 +1375,16 @@
       }[state.amplifierMode];
       const currentScale = (genreScales[rhythmFamily] || genreScales.MELODIC_TECHNO).map(note => note * arrangement.transpose);
 
+      if (generatedTrack || state.amplifierMode !== 'NOETIC_HYPERFLUX') {
+        playProducedHyperdynamic(step, now);
+        evolveBiofrequencyBeing(state.lifewayMode, step, currentScale, now);
+        stepIndex++;
+        return;
+      }
       playArrangementPhrase(arrangement, step, currentScale, now);
 
-      // Noetic Hyperflux is the dedicated D&B organism; the others retain distinct genre bodies.
-      if (state.amplifierMode === 'NOETIC_HYPERFLUX' || state.amplifierMode === 'NOETIC_SURGE') {
+      // Noetic Hyperflux alone retains the dedicated D&B organism.
+      if (state.amplifierMode === 'NOETIC_HYPERFLUX') {
         playBiodynamicDnB(state.amplifierMode, step, currentScale, now);
       } else if (rhythmFamily === 'PSYTRANCE') {
         // Fast 16th rolling bass: Kick on 0,4,8,12; Bass on steps 1,2,3, 5,6,7, 9,10,11, 13,14,15
@@ -1208,21 +1452,6 @@
       }
 
       evolveAmplifier(state.amplifierMode, step, currentScale, now);
-      if (generatedTrack) {
-        const section = generatedTrack.sections[generatedTrack.section];
-        // Shared harmony and clock keep independently gated layers musically related.
-        for (const mode of section.layers) {
-          if (Math.random() < .18 + generatedTrack.variation * .42) {
-            const previous = currentArrangement;
-            try {
-              currentArrangement = arrangementAt(arrangementTime(), mode);
-              currentArrangement.leadLevel *= .35;
-              currentArrangement.bassLevel *= .35;
-              evolveAmplifier(mode, step, currentScale, now);
-            } finally { currentArrangement = previous; }
-          }
-        }
-      }
       evolveBiofrequencyBeing(state.lifewayMode, step, currentScale, now);
       stepIndex++;
     }
@@ -1245,6 +1474,7 @@
 
     function runSequencer() {
       if (!state.isPlaying || !audioCtx || audioCtx.state !== 'running' || audioStopRequest) return;
+      crystalEcho.delayTime.setTargetAtTime(45 / state.bpm, audioCtx.currentTime, .08);
       masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
       masterGain.gain.setValueAtTime(.28, audioCtx.currentTime);
       if (sequencerTimer === null || lastScheduledBpm !== state.bpm) {
@@ -1485,14 +1715,17 @@
     const lifewayDescription = document.getElementById('lifeway-description');
     const ecologyState = document.getElementById('ecology-state');
     const spectralProfiles = {
-      VELVET:   { waveShape:'sine',     filterCutoff:.36, resonance:.16, primaryColor:'#b8f35a', secondaryColor:'#67e8c2' },
+      LIQUID:   { waveShape:'sine', filterCutoff:.62, resonance:.28, primaryColor:'#48C8FF', secondaryColor:'#67F0E8' },
       CRYSTAL:  { waveShape:'triangle', filterCutoff:1, resonance:.22, primaryColor:'#67e8c2', secondaryColor:'#f1f3dc' },
       CELLULAR: { waveShape:'square',   filterCutoff:.56, resonance:.62, primaryColor:'#f3d58b', secondaryColor:'#b8f35a' },
       FERAL:    { waveShape:'sawtooth', filterCutoff:.72, resonance:.78, primaryColor:'#ff8066', secondaryColor:'#7967e8' }
     };
     const amplifierProfiles = {
-      NOETIC_SURGE: { title:'Noetic Surge', description:'High-pitched stereo swarms erupt over fractured 184 BPM drum-and-bass: pressure waves, triplet sparks and unstable fills surge above a mystical sub-bass undertow.', genre:'DRUM_AND_BASS', bpm:184, geometry:'NEON_GRID', divergence:.52, multiplicity:.62, coherence:.68, exursion:.48 },
-      POLYATTENTION: { title:'Polyattention', description:'Autonomous musical agents follow independent but permeable trajectories.', genre:'GENERATIVE_IDM', bpm:136, geometry:'QUANTUM_PARTICLES', divergence:.66, multiplicity:.94, coherence:.34, exursion:.7 },
+      AXIOM_BLOOM: { title:'Axiom Bloom', description:'Interlocking melodic cells, luminous FM bells and precise electro syncopation.', genre:'MELODIC_TECHNO', bpm:132, geometry:'SACRED_MANDALA', divergence:.65, multiplicity:.6, coherence:.75, exursion:.6 },
+      VELVET_CIRCUIT: { title:'Velvet Circuit', description:'Warm detuned chord stabs, a rounded sub and spacious four-on-the-floor motion.', genre:'MELODIC_TECHNO', bpm:124, geometry:'AURORA_WAVES', divergence:.65, multiplicity:.6, coherence:.75, exursion:.6 },
+      PRISM_BREAKS: { title:'Prism Breaks', description:'Swung broken beats, glassy FM splinters and restrained micro-edits.', genre:'MELODIC_TECHNO', bpm:138, geometry:'NEON_GRID', divergence:.65, multiplicity:.6, coherence:.75, exursion:.6 },
+      NOETIC_SURGE: { title:'Noetic Surge', description:'An Atlantean blue space-tech stream: liquid-crystal arpeggios, luminous FM tides and echoing celestial bells open into freedom, wonder and cosmic mystery.', genre:'ELECTRO_TRANCE', bpm:144, geometry:'AURORA_WAVES', primaryColor:'#48C8FF', secondaryColor:'#146BFF', accentColor:'#C1F6FF', divergence:.52, multiplicity:.62, coherence:.68, exursion:.48 },
+      POLYATTENTION: { title:'Polyattention', description:'Only chopped cybernetic samples: soft liquid-FM chimes, luminous crystal fragments and flowing electronic ripples drift through a stochastic Atlantean soundstream. No melody or chord progression. No drums, percussion or continuous hum.', genre:'GENERATIVE_IDM', lifewayMode:null, filterCutoff:.85, resonance:.12, binauralEnabled:false, solfeggioEnabled:false, isochronicEnabled:false, harmonicVol:0, bpm:136, geometry:'QUANTUM_PARTICLES', divergence:.66, multiplicity:.94, coherence:.34, exursion:.7 },
       EXURSIVE_FLOW: { title:'Exursive Flow', description:'Patterns retain memory while continually opening non-returning branches.', genre:'EXURSIVE_TECHNO', bpm:128, geometry:'COSMIC_TUNNEL', divergence:.82, multiplicity:.58, coherence:.43, exursion:.98 },
       HYPERFOCUS_LENS: { title:'Hyperfocus Lens', description:'A persistent sonic attractor remains coherent through surrounding change.', genre:'MINIMAL_PROGRESSIVE', bpm:120, geometry:'SACRED_MANDALA', divergence:.28, multiplicity:.34, coherence:.96, exursion:.25 },
       DIVERGENCE_ENGINE: { title:'Ecosystems & Hyperecosystems', description:'Nested musical ecologies bifurcate, overlap and create higher-order habitats of sound.', genre:'BIOCYBER_TRANCE', bpm:142, geometry:'QUANTUM_PARTICLES', divergence:.98, multiplicity:.76, coherence:.36, exursion:.86 },
@@ -1505,7 +1738,7 @@
     };
     let generatedTrack = null;
     function trackLabel(section) {
-      return [section.foundation, ...section.layers].map(mode => amplifierProfiles[mode].title).join(' + ');
+      return `${productionStyles[section.foundation].label} · ${[section.foundation, ...section.layers].map(mode => amplifierProfiles[mode].title).join(' + ')}`;
     }
     function leaveTrack(message = 'Track left. Playing the current hyperflux.') {
       generatedTrack = null;
@@ -1516,9 +1749,14 @@
       const profile = amplifierProfiles[section.foundation];
       // Keep one tempo for the whole track: transitions never replace the sequencer clock.
       Object.assign(state, { amplifierMode:section.foundation, geometry:profile.geometry,
+        primaryColor:profile.primaryColor || '#B8F35A', secondaryColor:profile.secondaryColor || '#67E8C2', accentColor:profile.accentColor || '#FF8066',
         divergence:profile.divergence, multiplicity:profile.multiplicity,
         coherence:profile.coherence, exursion:profile.exursion,
-        biodynamicShader:section.foundation !== 'NOETIC_SURGE' });
+        biodynamicShader:!['PRISM_BREAKS','VELVET_CIRCUIT','AXIOM_BLOOM'].includes(section.foundation) });
+      if (section.foundation === 'POLYATTENTION') {
+        Object.assign(state, { binauralEnabled:false, solfeggioEnabled:false, isochronicEnabled:false, harmonicVol:0, lifewayMode:null, filterCutoff:.85, resonance:.12 });
+        applyAudioParameters();
+      }
       amplifierTitle.textContent = 'Stochastic alliance';
       amplifierDescription.textContent = trackLabel(section);
       document.querySelectorAll('[data-amplifier]').forEach(button => {
@@ -1565,7 +1803,7 @@
         const layers = [];
         const layerCount = Math.min(available.length, variation > .5 ? 2 : 1);
         while (layers.length < layerCount) layers.push(available.splice(Math.floor(Math.random() * available.length), 1)[0]);
-        sections.push({ foundation, layers });
+        sections.push({ foundation, layers, mutation:Math.floor(Math.random() * 997) });
       }
       clearSequencerClock();
       clearSynthVoices();
@@ -1722,12 +1960,12 @@
         document.querySelectorAll('[data-amplifier]').forEach(item => item.classList.remove('active'));
         button.classList.add('active');
         state.amplifierMode = button.dataset.amplifier;
-        state.biodynamicShader = button.dataset.amplifier !== 'NOETIC_SURGE';
+        state.biodynamicShader = !['PRISM_BREAKS','VELVET_CIRCUIT','AXIOM_BLOOM'].includes(button.dataset.amplifier);
         Object.assign(state, { speed:1.0, bloomIntensity:.8, audioSensitivity:1.0, primaryColor:'#B8F35A', secondaryColor:'#67E8C2', accentColor:'#FF8066' }, profile);
         state.isPlaying = true;
         resetArrangement();
         amplifierTitle.textContent = profile.title;
-        amplifierDescription.textContent = profile.description;
+        amplifierDescription.textContent = `${productionStyles[state.amplifierMode].label} · ${profile.description}`;
         tempoControl.value = profile.bpm;
         syncWebControls();
       });
@@ -1903,24 +2141,35 @@
       ctx.shadowBlur = 12 * state.bloomIntensity;
 
       if (mode === 'NOETIC_SURGE') {
-        // Original Noetic Surge: the clean, receding neon-grid horizon.
-        const horizon = 40;
-        ctx.strokeStyle = state.primaryColor;
-        ctx.shadowColor = state.primaryColor;
-        ctx.lineWidth = 1.5;
-        ctx.globalAlpha = .78;
-        for (let x = -width; x < width; x += 60) {
+        // Refractive blue ribbons flow through crystalline portal facets.
+        ctx.shadowColor = '#39BFFF';
+        for (let ribbon = 0; ribbon < 14; ribbon++) {
           ctx.beginPath();
-          ctx.moveTo(x, height / 2);
-          ctx.lineTo(x * .1, horizon);
+          for (let segment = 0; segment <= 80; segment++) {
+            const depth = segment / 80;
+            const spread = 18 + depth * depth * Math.max(width, height) * .75;
+            const angle = ribbon * Math.PI / 7 + Math.sin(depth * 5 - timeAcc * .65) * .22;
+            const x = Math.cos(angle) * spread;
+            const y = Math.sin(angle) * spread * .65 + Math.sin(depth * 9 - timeAcc + ribbon) * depth * 28;
+            if (!segment) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          }
+          ctx.strokeStyle = ribbon % 3 === 0 ? '#C1F6FF' : ribbon % 2 ? '#146BFF' : '#48C8FF';
+          ctx.globalAlpha = .18 + energy * .24;
+          ctx.lineWidth = ribbon % 3 === 0 ? 1 : 2.4;
           ctx.stroke();
         }
-        const spacing = 20 + energy * 15;
-        for (let y = horizon; y < height / 2; y += spacing) {
+        for (let facet = 0; facet < 12; facet++) {
+          const depth = ((facet / 12 + timeAcc * .045) % 1);
+          const radius = 22 + depth * depth * Math.max(width, height) * .7;
           ctx.beginPath();
-          ctx.moveTo(-width / 2, y);
-          ctx.lineTo(width / 2, y);
-          ctx.stroke();
+          for (let edge = 0; edge <= 6; edge++) {
+            const angle = edge * Math.PI / 3 + timeAcc * .04 + facet * .08;
+            const x = Math.cos(angle) * radius, y = Math.sin(angle) * radius * .65;
+            if (!edge) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          }
+          ctx.strokeStyle = facet % 3 ? '#48C8FF' : '#C1F6FF';
+          ctx.globalAlpha = Math.sin(depth * Math.PI) * .24;
+          ctx.lineWidth = 1; ctx.stroke();
         }
         ctx.globalAlpha = 1;
       } else if (mode === 'POLYATTENTION') {
