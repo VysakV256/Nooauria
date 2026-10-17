@@ -60,7 +60,7 @@
     .arrangement-status { display:flex; align-items:center; gap:12px; margin-bottom:12px; color:#93a89b; font:700 9px/1.3 sans-serif; letter-spacing:.08em; }
     #arrangement-readout { white-space:nowrap; }
     #arrangement-progress { flex:1; min-width:0; height:3px; accent-color:#67e8c2; }
-    .amplifier-rail { display:flex; gap:7px; margin:0 -2px 14px; padding:2px; overflow:auto; scrollbar-width:none; }
+    .amplifier-rail { display:flex; flex-wrap:wrap; gap:7px; margin:0 -2px 14px; padding:2px; }
     .amplifier-rail button { padding:10px 13px; color:#93a89b; background:rgba(255,255,255,.025); border:1px solid rgba(147,168,155,.16); border-radius:18px 8px 18px 8px; white-space:nowrap; }
     .amplifier-rail button.active { color:#07100c; background:#b8f35a; border-color:#b8f35a; }
     .disclaimer { margin:10px 2px 0; color:rgba(147,168,155,.65); font-size:8px; letter-spacing:.05em; }
@@ -89,6 +89,19 @@
     @media(max-width:380px){
       #awaken{min-width:136px;gap:6px;padding:15px 12px;font-size:10px} #maximize-shader{padding:12px 10px;font-size:9px}
     }
+    #control-dock { max-height:calc(100dvh - 150px); overflow:auto; }
+    .track-composer { margin-bottom:14px; padding:14px; border:1px solid #355348; border-radius:18px; background:rgba(103,232,194,.04); }
+    .track-composer summary { color:#67e8c2; cursor:pointer; font-size:11px; letter-spacing:.12em; }
+    .track-composer p { color:#93a89b; font-size:11px; line-height:1.5; margin:10px 0; }
+    .track-pool { display:flex; flex-wrap:wrap; gap:8px 14px; margin:12px 0; }
+    .track-pool label { color:#d2e5d9; font-size:11px; display:flex; align-items:center; gap:5px; }
+    .track-options { display:flex; flex-wrap:wrap; align-items:center; gap:12px; font-size:11px; }
+    .track-options input { width:72px; padding:8px; background:#101d17; color:#f1f3dc; border:1px solid #355348; border-radius:8px; }
+    .track-options select { padding:8px; background:#101d17; color:#f1f3dc; border:1px solid #355348; border-radius:8px; }
+    .track-options button { padding:12px; border-radius:12px; background:#67e8c2; color:#07100c; }
+    #track-status { display:block; margin-top:12px; color:#b8f35a; font-size:11px; line-height:1.5; }
+    #track-progress { width:100%; height:5px; accent-color:#67e8c2; }
+    button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline:2px solid #f3d58b; outline-offset:3px; }
   </style>
 </head>
 <body>
@@ -117,6 +130,20 @@
       <button type="button" data-amplifier="HYPERASTRA">HYPERASTRA</button>
       <button type="button" class="active" data-amplifier="NOETIC_HYPERFLUX">NOETIC HYPERFLUX</button>
     </div>
+    <details class="track-composer">
+      <summary>STOCHASTIC TRACK COMPOSER</summary>
+      <p>Combine hyperfluxes into a new journey. One rhythm foundation meets up to two shifting voices in short hyperdynamics. Generate a new combination every 3 seconds, or set your own interval. Emerge / Rest pauses and resumes.</p>
+      <div class="track-pool" aria-label="Hyperfluxes available for generation"><label><input type="checkbox" data-track-mode="NOETIC_SURGE" checked>Noetic Surge</label><label><input type="checkbox" data-track-mode="POLYATTENTION" checked>Polyattention</label><label><input type="checkbox" data-track-mode="EXURSIVE_FLOW" checked>Exursive Flow</label><label><input type="checkbox" data-track-mode="HYPERFOCUS_LENS" checked>Hyperfocus Lens</label><label><input type="checkbox" data-track-mode="DIVERGENCE_ENGINE" checked>Divergence Engine</label><label><input type="checkbox" data-track-mode="PHASEWEAVE" checked>Phaseweave</label><label><input type="checkbox" data-track-mode="AETHERFLUX" checked>Aetherflux</label><label><input type="checkbox" data-track-mode="METAMORPHIC_PULSE" checked>Metamorphic Pulse</label><label><input type="checkbox" data-track-mode="VIRIDION" checked>Viridion</label><label><input type="checkbox" data-track-mode="HYPERASTRA" checked>Hyperastra</label><label><input type="checkbox" data-track-mode="NOETIC_HYPERFLUX" checked>Noetic Hyperflux</label></div>
+      <div class="track-options">
+        <label>Length <select id="track-length"><option value="126">2:06</option><option value="252" selected>4:12</option><option value="378">6:18</option></select></label>
+        <label>Interval (seconds) <input id="track-interval" type="number" min="0.5" max="42" step="0.5" value="3"></label>
+        <label>Variation <select id="track-variation"><option value="0.25">Gentle</option><option value="0.6" selected>Exploratory</option><option value="1">Wild</option></select></label>
+        <button type="button" id="generate-track">GENERATE &amp; PLAY</button>
+        <button type="button" id="leave-track">LEAVE TRACK</button>
+      </div>
+      <output id="track-status" aria-live="polite">Select at least two hyperfluxes, then generate a track.</output>
+      <progress id="track-progress" max="1" value="0" aria-label="Generated track progress"></progress>
+    </details>
     <div class="controls">
       <div class="species" aria-label="Visual habitats">
         <button type="button" class="active" data-geometry="COSMIC_TUNNEL">MYCELIAL TUNNEL</button>
@@ -1096,6 +1123,7 @@
     function stepSequencer() {
       if (!state.isPlaying || !audioCtx || audioCtx.state !== 'running') return;
 
+      if (!advanceTrack()) return;
       const now = audioCtx.currentTime;
       const step = stepIndex % 16;
       currentArrangement = arrangementAt(arrangementTime());
@@ -1180,6 +1208,21 @@
       }
 
       evolveAmplifier(state.amplifierMode, step, currentScale, now);
+      if (generatedTrack) {
+        const section = generatedTrack.sections[generatedTrack.section];
+        // Shared harmony and clock keep independently gated layers musically related.
+        for (const mode of section.layers) {
+          if (Math.random() < .18 + generatedTrack.variation * .42) {
+            const previous = currentArrangement;
+            try {
+              currentArrangement = arrangementAt(arrangementTime(), mode);
+              currentArrangement.leadLevel *= .35;
+              currentArrangement.bassLevel *= .35;
+              evolveAmplifier(mode, step, currentScale, now);
+            } finally { currentArrangement = previous; }
+          }
+        }
+      }
       evolveBiofrequencyBeing(state.lifewayMode, step, currentScale, now);
       stepIndex++;
     }
@@ -1460,6 +1503,84 @@
       HYPERASTRA: { title:'Hyperastra', description:'Nested musical timescales create an ecology of perceived immensity.', genre:'ASTRAL_DOWNTEMPO', bpm:100, geometry:'COSMIC_TUNNEL', divergence:.7, multiplicity:.84, coherence:.52, exursion:.8 },
       NOETIC_HYPERFLUX: { title:'Noetic Hyperflux', description:'A phase-changing ecology where minor organisms become organizing forces.', genre:'DRUM_AND_BASS', bpm:174, geometry:'COSMIC_TUNNEL', divergence:.72, multiplicity:.68, coherence:.56, exursion:.78 }
     };
+    let generatedTrack = null;
+    function trackLabel(section) {
+      return [section.foundation, ...section.layers].map(mode => amplifierProfiles[mode].title).join(' + ');
+    }
+    function leaveTrack(message = 'Track left. Playing the current hyperflux.') {
+      generatedTrack = null;
+      document.getElementById('track-status').textContent = message;
+      document.getElementById('track-progress').value = 0;
+    }
+    function applyTrackSection(section) {
+      const profile = amplifierProfiles[section.foundation];
+      // Keep one tempo for the whole track: transitions never replace the sequencer clock.
+      Object.assign(state, { amplifierMode:section.foundation, geometry:profile.geometry,
+        divergence:profile.divergence, multiplicity:profile.multiplicity,
+        coherence:profile.coherence, exursion:profile.exursion,
+        biodynamicShader:section.foundation !== 'NOETIC_SURGE' });
+      amplifierTitle.textContent = 'Stochastic alliance';
+      amplifierDescription.textContent = trackLabel(section);
+      document.querySelectorAll('[data-amplifier]').forEach(button => {
+        button.classList.toggle('active', button.dataset.amplifier === section.foundation);
+      });
+    }
+    function advanceTrack() {
+      if (!generatedTrack) return true;
+      const elapsed = arrangementTime();
+      const duration = generatedTrack.duration;
+      document.getElementById('track-progress').value = Math.min(1, elapsed / duration);
+      if (elapsed >= duration) {
+        generatedTrack = null;
+        state.isPlaying = false;
+        syncWebControls();
+        document.getElementById('track-status').textContent = 'Track complete. Generate another journey.';
+        return false;
+      }
+      const index = Math.floor(elapsed / generatedTrack.interval);
+      if (generatedTrack.section !== index) {
+        generatedTrack.section = index;
+        applyTrackSection(generatedTrack.sections[index]);
+        document.getElementById('track-status').textContent = `Hyperdynamic ${index + 1} / ${generatedTrack.sections.length} · ${generatedTrack.interval}s interval · ${trackLabel(generatedTrack.sections[index])}`;
+      }
+      return true;
+    }
+    document.getElementById('generate-track').addEventListener('click', () => {
+      const pool = [...document.querySelectorAll('[data-track-mode]')].filter(input => input.checked).map(input => input.dataset.trackMode);
+      if (pool.length < 2) {
+        document.getElementById('track-status').textContent = 'Choose at least two hyperfluxes to combine.';
+        return;
+      }
+      const duration = Number(document.getElementById('track-length').value) || 252;
+      const requestedInterval = Number(document.getElementById('track-interval').value);
+      const interval = Number.isFinite(requestedInterval) && requestedInterval >= .5 && requestedInterval <= 42 ? requestedInterval : 3;
+      document.getElementById('track-interval').value = interval;
+      const count = Math.ceil(duration / interval);
+      const variation = Number(document.getElementById('track-variation').value) || .6;
+      const sections = [];
+      for (let i = 0; i < count; i++) {
+        const candidates = pool.filter(mode => mode !== sections[i - 1]?.foundation);
+        const foundation = candidates[Math.floor(Math.random() * candidates.length)];
+        const available = pool.filter(mode => mode !== foundation);
+        const layers = [];
+        const layerCount = Math.min(available.length, variation > .5 ? 2 : 1);
+        while (layers.length < layerCount) layers.push(available.splice(Math.floor(Math.random() * available.length), 1)[0]);
+        sections.push({ foundation, layers });
+      }
+      clearSequencerClock();
+      clearSynthVoices();
+      resetArrangement();
+      state.lifewayMode = null;
+      state.generativeEnabled = false;
+      document.querySelectorAll('[data-lifeway]').forEach(button => button.classList.remove('active'));
+      state.bpm = Math.round(sections.reduce((sum, section) => sum + amplifierProfiles[section.foundation].bpm, 0) / count);
+      tempoControl.value = state.bpm;
+      generatedTrack = { sections, variation, interval, duration, section:-1 };
+      advanceTrack();
+      state.isPlaying = true;
+      syncWebControls();
+    });
+    document.getElementById('leave-track').addEventListener('click', () => leaveTrack());
     const lifewayProfiles = {
       MYCELIAL_COMMUNION: { carrier:174, beat:7.83, iso:7.83, sol:285, binaural:true, isoOn:false, bpm:122, genre:'MELODIC_TECHNO', title:'Mycelial Communion', description:'Interlocking signal-roots exchange motifs across a quickening subterranean network.', ecology:'networking roots · many voices' },
       CHLOROPHYLL_MIND: { carrier:264, beat:10, iso:8, sol:528, binaural:true, isoOn:false, bpm:132, genre:'PROGRESSIVE_HOUSE', title:'Chlorophyll Mind', description:'A brilliant photosynthetic canopy multiplies into fast ascending harmonies and lucid rhythmic growth.', ecology:'verdant radiance proliferating', geometry:'SACRED_MANDALA', spectrumMode:'CRYSTAL', waveShape:'triangle', filterCutoff:.9, resonance:.3, bloomIntensity:1.15, speed:1.22, mutationDepth:.72, primaryColor:'#C8FF4A', secondaryColor:'#4DFFD2', accentColor:'#F3FFB0' },
@@ -1545,6 +1666,7 @@
       button.addEventListener('click', () => {
         clearSequencerClock();
         clearSynthVoices();
+        leaveTrack('Lifeway selected. Generate a new track whenever you like.');
         const profile = lifewayProfiles[button.dataset.lifeway];
         document.querySelectorAll('[data-lifeway]').forEach(item => item.classList.remove('active'));
         button.classList.add('active');
@@ -1595,6 +1717,7 @@
       button.addEventListener('click', () => {
         clearSequencerClock();
         clearSynthVoices();
+        leaveTrack('Manual hyperflux selected. Generate a new track whenever you like.');
         const profile = amplifierProfiles[button.dataset.amplifier];
         document.querySelectorAll('[data-amplifier]').forEach(item => item.classList.remove('active'));
         button.classList.add('active');

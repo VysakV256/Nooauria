@@ -97,9 +97,9 @@ function habitat({ scoreOnly = false } = {}) {
     }
     return elements.get(id);
   }
-  for (const attribute of ['amplifier','lifeway','spectrum','geometry']) {
+  for (const attribute of ['amplifier','lifeway','spectrum','geometry','track-mode']) {
     const list = [...html.matchAll(new RegExp(`data-${attribute}="([^"]+)"`, 'g'))].map(m => {
-      const e = element(`${attribute}:${m[1]}`); e.dataset[attribute] = m[1]; return e;
+      const e = element(`${attribute}:${m[1]}`); e.dataset[attribute === 'track-mode' ? 'trackMode' : attribute] = m[1]; e.checked = true; return e;
     });
     groups.set(`[data-${attribute}]`, list);
   }
@@ -115,6 +115,7 @@ function habitat({ scoreOnly = false } = {}) {
   vm.runInContext(script + `\nthis.inspectAudio = () => ({ context: audioCtx, step: stepIndex, playing: state.isPlaying, voiceCount: typeof activeVoices === 'undefined' ? activeVoiceCount : activeVoices.size, wave: crystalLeadWave, master: masterGain });`, sandbox);
   vm.runInContext(`
     this.inspectArrangement = () => ({ elapsed: arrangementTime(), ...arrangementAt(arrangementTime()), bpm: state.bpm });
+    this.inspectTrack = () => generatedTrack;
     this.scoreEvents = [];
   `, sandbox);
   if (scoreOnly) vm.runInContext(`
@@ -124,7 +125,7 @@ function habitat({ scoreOnly = false } = {}) {
     }
   `, sandbox);
   return { contexts, intervals, groups, element, document, window, errors, inspect: sandbox.inspectAudio,
-    arrangement: sandbox.inspectArrangement, scoreEvents: sandbox.scoreEvents, spark: sandbox.playSurgeSpark,
+    track: sandbox.inspectTrack, arrangement: sandbox.inspectArrangement, scoreEvents: sandbox.scoreEvents, spark: sandbox.playSurgeSpark,
     click: (kind, name) => element(`${kind}:${name}`).click(),
     advance(seconds) { const ctx = sandbox.inspectAudio().context; ctx.advance(seconds); for (const fn of [...intervals.values()]) fn(); } };
 }
@@ -380,4 +381,62 @@ test('lifeway switching and rapid repeated rest/start remain playable', async ()
     h.advance(.3);
   }
   assert.equal(h.errors.length, 0); assert.equal(h.contexts.length, 1);
+});
+
+
+test('stochastic tracks combine only selected modes and finish on the audio clock', async () => {
+  const h = habitat();
+  for (const input of h.groups.get('[data-track-mode]')) input.checked = ['NOETIC_SURGE','PHASEWEAVE','AETHERFLUX'].includes(input.dataset.trackMode);
+  h.element('track-length').value = '126'; h.element('track-variation').value = '1';
+  h.element('generate-track').click(); await settle();
+  const track = h.track();
+  assert.equal(track.sections.length, 42);
+  assert.equal(track.interval, 3);
+  for (const [i, section] of track.sections.entries()) {
+    assert.equal(new Set([section.foundation, ...section.layers]).size, 3);
+    if (i) assert.notEqual(section.foundation, track.sections[i-1].foundation);
+  }
+  const bpm = h.arrangement().bpm;
+  for (let tick=0; tick<31; tick++) h.advance(.1);
+  assert.equal(h.track().section, 1);
+  assert.equal(h.arrangement().bpm, bpm); assert.equal(h.intervals.size, 1);
+  h.element('awaken').click(); await settle();
+  const elapsed = h.arrangement().elapsed;
+  h.advance(20); assert.equal(h.arrangement().elapsed, elapsed);
+  h.element('awaken').click(); await settle();
+  for (let tick=0; tick<1230; tick++) h.advance(.1);
+  await settle();
+  assert.equal(h.track(), null); assert.equal(h.inspect().playing, false);
+  assert.equal(h.intervals.size, 0); assert.equal(h.inspect().voiceCount, 0);
+  assert.match(h.element('track-status').textContent, /complete/);
+  assert.equal(h.errors.length, 0);
+});
+
+test('composer validates the pool and manual selection exits a generated track', async () => {
+  const h = habitat();
+  for (const input of h.groups.get('[data-track-mode]')) input.checked = false;
+  h.element('generate-track').click(); await settle();
+  assert.equal(h.track(), null); assert.equal(h.contexts.length, 0);
+  assert.match(h.element('track-status').textContent, /at least two/);
+  for (const input of h.groups.get('[data-track-mode]')) input.checked = true;
+  h.element('generate-track').click(); await settle();
+  assert.ok(h.track());
+  h.element('generate-track').click(); await settle();
+  assert.equal(h.intervals.size, 1); assert.equal(h.contexts.length, 1);
+  h.click('amplifier','VIRIDION'); await settle();
+  assert.equal(h.track(), null); assert.equal(h.inspect().playing, true);
+});
+
+
+test('hyperdynamic interval controls transitions independently of tempo', async () => {
+  const h = habitat();
+  h.element('track-interval').value = '1.5';
+  h.element('generate-track').click(); await settle();
+  assert.equal(h.track().interval, 1.5);
+  h.advance(1.4); assert.equal(h.track().section, 0);
+  h.advance(.2); assert.equal(h.track().section, 1);
+  h.element('track-interval').value = '-1';
+  h.element('generate-track').click(); await settle();
+  assert.equal(h.track().interval, 3);
+  assert.equal(h.intervals.size, 1);
 });
