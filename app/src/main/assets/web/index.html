@@ -490,9 +490,10 @@
 
     function setupCognitiveSynth() {
       if (!audioCtx) return;
+      const atmosphereLevel = state.amplifierMode === 'EXURSIVE_FLOW' ? .2 : 1;
 
       binauralGain = audioCtx.createGain();
-      binauralGain.gain.value = state.binauralEnabled ? state.binauralVol * 0.2 : 0.0;
+      binauralGain.gain.value = state.binauralEnabled ? state.binauralVol * 0.2 * atmosphereLevel : 0.0;
 
       binauralLeftPanner = audioCtx.createStereoPanner ? audioCtx.createStereoPanner() : null;
       binauralRightPanner = audioCtx.createStereoPanner ? audioCtx.createStereoPanner() : null;
@@ -523,7 +524,7 @@
       binauralRightOsc.start();
 
       solfeggioGain = audioCtx.createGain();
-      solfeggioGain.gain.value = state.solfeggioEnabled ? state.solfeggioVol * 0.15 : 0.0;
+      solfeggioGain.gain.value = state.solfeggioEnabled ? state.solfeggioVol * 0.15 * atmosphereLevel : 0.0;
       solfeggioOsc = audioCtx.createOscillator();
       solfeggioOsc.type = 'sine';
       solfeggioOsc.frequency.value = state.solfeggioHz;
@@ -532,7 +533,7 @@
       solfeggioOsc.start();
 
       solfeggioHarmonicGain = audioCtx.createGain();
-      solfeggioHarmonicGain.gain.value = state.solfeggioEnabled ? state.harmonicVol : 0.0;
+      solfeggioHarmonicGain.gain.value = state.solfeggioEnabled ? state.harmonicVol * atmosphereLevel : 0.0;
       solfeggioHarmonicOsc = audioCtx.createOscillator();
       solfeggioHarmonicOsc.type = 'sine';
       solfeggioHarmonicOsc.frequency.value = state.solfeggioHz * state.harmonicRatio;
@@ -541,7 +542,7 @@
       solfeggioHarmonicOsc.start();
 
       isochronicGain = audioCtx.createGain();
-      isochronicGain.gain.value = state.isochronicEnabled ? state.isochronicVol * 0.075 : 0.0;
+      isochronicGain.gain.value = state.isochronicEnabled ? state.isochronicVol * 0.075 * atmosphereLevel : 0.0;
       isochronicOsc = audioCtx.createOscillator();
       isochronicOsc.type = 'sine';
       isochronicOsc.frequency.value = state.binauralCarrierHz;
@@ -550,7 +551,7 @@
       isochronicLfo.type = 'sine';
       isochronicLfo.frequency.value = state.isochronicHz;
       isochronicDepth = audioCtx.createGain();
-      isochronicDepth.gain.value = state.isochronicEnabled ? state.isochronicVol * 0.075 : 0.0;
+      isochronicDepth.gain.value = state.isochronicEnabled ? state.isochronicVol * 0.075 * atmosphereLevel : 0.0;
       isochronicLfo.connect(isochronicDepth);
       isochronicDepth.connect(isochronicGain.gain);
       isochronicOsc.connect(isochronicGain);
@@ -1072,13 +1073,13 @@
         // A four-bar pressure ramp: each wave grows in body, then releases into the next.
         const pressure = bar % 4;
         const growth = Math.min(1, elapsed / 28);
-        if (step % 2 === 0) playProductionVoice(now, root * [1,1,2,1,1,1,1.5,1][step / 2], sixteenth * 1.15, 'drive', .12 * drive * fade, 0);
-        if (step === 0) playSoundSlab(time, root * (bar % 3 === 2 ? 1.5 : 2), sixteenth * (18 + pressure), (.85 + pressure * .12 + growth * .35) * drive * fade);
-        if (step === 10 && bar % 2) playSoundSlab(time, root * 3, sixteenth * 10, (.55 + pressure * .09 + growth * .25) * drive * fade);
+        if (step % 2 === 0) playProductionVoice(now, root * [1,1,2,1,1,1,1.5,1][step / 2], sixteenth * 1.15, 'drive', .04 * drive * fade, 0);
+        if (step === 0) playSoundSlab(time, root * (bar % 3 === 2 ? 1.5 : 2), sixteenth * (18 + pressure), (1.7 + pressure * .24 + growth * .7) * drive * fade);
+        if (step === 10 && bar % 2) playSoundSlab(time, root * 3, sixteenth * 10, (1.1 + pressure * .18 + growth * .5) * drive * fade);
         const burstStart = 14 - pressure * 2;
         if (step >= burstStart && step % 2 === 0) {
           const crest = (step - burstStart) / 2;
-          const level = (.11 + pressure * .025 + crest * .025) * drive * fade;
+          const level = (.20 + pressure * .045 + crest * .045) * drive * fade;
           playProductionVoice(time, note((bar + crest) % 5) * 2, sixteenth * .8, 'burst', level, crest % 2 ? -.5 : .5);
           if (pressure === 3) playProductionVoice(time + sixteenth * .5, note((bar + crest + 2) % 5) * 2,
             sixteenth * .55, 'burst', level * .7, crest % 2 ? .5 : -.5);
@@ -1750,6 +1751,7 @@
 
     function applyAudioParameters() {
         if (!audioCtx || audioCtx.state === 'closed') return;
+        const atmosphereLevel = state.amplifierMode === 'EXURSIVE_FLOW' ? .2 : 1;
         if (filterNode) {
           filterNode.frequency.value = 200 + (state.filterCutoff * 18000);
           filterNode.Q.value = Math.min(12, 0.5 + (state.resonance || 0) * 14);
@@ -1761,21 +1763,21 @@
           delayReturnGain.gain.linearRampToValueAtTime(state.spectrumMode === 'CRYSTAL' ? 0 : 1, now + .002);
         }
         if (binauralGain) {
-          binauralGain.gain.value = state.binauralEnabled ? state.binauralVol * 0.35 : 0.0;
+          binauralGain.gain.value = state.binauralEnabled ? state.binauralVol * 0.35 * atmosphereLevel : 0.0;
           updateBinauralFreqs();
         }
         if (solfeggioOsc && solfeggioGain) {
           solfeggioOsc.frequency.value = state.solfeggioHz;
-          solfeggioGain.gain.value = state.solfeggioEnabled ? state.solfeggioVol * 0.3 : 0.0;
+          solfeggioGain.gain.value = state.solfeggioEnabled ? state.solfeggioVol * 0.3 * atmosphereLevel : 0.0;
         }
         if (solfeggioHarmonicOsc && solfeggioHarmonicGain) {
           solfeggioHarmonicOsc.frequency.setTargetAtTime(state.solfeggioHz * state.harmonicRatio, audioCtx.currentTime, 0.04);
-          solfeggioHarmonicGain.gain.setTargetAtTime(state.solfeggioEnabled ? state.harmonicVol : 0.0, audioCtx.currentTime, 0.04);
+          solfeggioHarmonicGain.gain.setTargetAtTime(state.solfeggioEnabled ? state.harmonicVol * atmosphereLevel : 0.0, audioCtx.currentTime, 0.04);
         }
         if (isochronicOsc && isochronicGain && isochronicLfo && isochronicDepth) {
           isochronicOsc.frequency.value = state.binauralCarrierHz;
           isochronicLfo.frequency.value = state.isochronicHz;
-          const isoLevel = state.isochronicEnabled ? state.isochronicVol * 0.075 : 0.0;
+          const isoLevel = state.isochronicEnabled ? state.isochronicVol * 0.075 * atmosphereLevel : 0.0;
           isochronicGain.gain.setTargetAtTime(isoLevel, audioCtx.currentTime, 0.025);
           isochronicDepth.gain.setTargetAtTime(isoLevel, audioCtx.currentTime, 0.025);
         }
@@ -1862,8 +1864,8 @@
         biodynamicShader:!['PRISM_BREAKS','VELVET_CIRCUIT','AXIOM_BLOOM'].includes(section.foundation) });
       if (section.foundation === 'POLYATTENTION') {
         Object.assign(state, { binauralEnabled:false, solfeggioEnabled:false, isochronicEnabled:false, harmonicVol:0, lifewayMode:null, filterCutoff:.85, resonance:.12 });
-        applyAudioParameters();
       }
+      applyAudioParameters();
       amplifierTitle.textContent = 'Stochastic alliance';
       amplifierDescription.textContent = trackLabel(section);
       document.querySelectorAll('[data-amplifier]').forEach(button => {

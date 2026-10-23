@@ -117,6 +117,7 @@ function habitat({ scoreOnly = false } = {}) {
   vm.runInContext(`
     this.inspectArrangement = () => ({ elapsed: arrangementTime(), ...arrangementAt(arrangementTime()), bpm: state.bpm });
     this.inspectTrack = () => generatedTrack;
+    this.inspectAtmosphere = () => ({ carrier:binauralGain?.gain.value, beacon:solfeggioGain?.gain.value });
     this.scoreEvents = [];
   `, sandbox);
   if (scoreOnly) vm.runInContext(`
@@ -126,7 +127,7 @@ function habitat({ scoreOnly = false } = {}) {
     }
   `, sandbox);
   return { contexts, intervals, groups, element, document, window, errors, inspect: sandbox.inspectAudio,
-    track: sandbox.inspectTrack, arrangement: sandbox.inspectArrangement, scoreEvents: sandbox.scoreEvents, spark: sandbox.playSurgeSpark,
+    atmosphere: sandbox.inspectAtmosphere, track: sandbox.inspectTrack, arrangement: sandbox.inspectArrangement, scoreEvents: sandbox.scoreEvents, spark: sandbox.playSurgeSpark,
     click: (kind, name) => element(`${kind}:${name}`).click(),
     advance(seconds) { const ctx = sandbox.inspectAudio().context; ctx.advance(seconds); for (const fn of [...intervals.values()]) fn(); } };
 }
@@ -586,4 +587,18 @@ test('Exursive keeps its motor pulse through breakdowns beneath overlapping satu
   real.element('awaken').click(); await settle();
   assert.equal(real.inspect().voiceCount, 0);
   assert.equal(real.errors.length, 0);
+});
+
+
+test('Exursive surges sit above its pulse and continuous tone bed', async () => {
+  const h = habitat({ scoreOnly:true }); h.click('amplifier','EXURSIVE_FLOW'); await settle();
+  for (let i=0;i<64;i++) h.advance(15 / h.arrangement().bpm);
+  const pulses = h.scoreEvents.filter(e => e.instrument === 'playProductionVoice' && e.args[2] === 'drive');
+  const bursts = h.scoreEvents.filter(e => e.instrument === 'playProductionVoice' && e.args[2] === 'burst');
+  assert.ok(Math.min(...bursts.map(e => e.args[3])) > Math.max(...pulses.map(e => e.args[3])) * 3);
+  const bed = h.atmosphere();
+  h.click('amplifier','VIRIDION'); await settle();
+  assert.ok(h.atmosphere().carrier > bed.carrier * 4);
+  assert.ok(h.atmosphere().beacon > bed.beacon * 4);
+  assert.equal(h.errors.length, 0);
 });
