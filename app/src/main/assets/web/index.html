@@ -102,6 +102,14 @@
     #track-status { display:block; margin-top:12px; color:#b8f35a; font-size:11px; line-height:1.5; }
     #track-progress { width:100%; height:5px; accent-color:#67e8c2; }
     button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline:2px solid #f3d58b; outline-offset:3px; }
+    .focus-lens { margin:0 0 14px; padding:12px; border:1px solid rgba(103,232,194,.3); border-radius:16px; }
+    .focus-lens[hidden] { display:none; }
+    .focus-lens legend { color:#67e8c2; padding:0 7px; font-size:10px; letter-spacing:.1em; }
+    .focus-lens p { color:#93a89b; font-size:10px; line-height:1.5; margin-bottom:10px; }
+    .lens-controls { display:flex; flex-wrap:wrap; gap:18px; }
+    .lens-controls label { flex:1; min-width:140px; color:#93a89b; font-size:10px; }
+    .lens-controls input { display:block; width:100%; margin-top:7px; accent-color:#67e8c2; }
+    #lens-phase { display:block; margin-top:12px; color:#b8f35a; font-size:10px; letter-spacing:.08em; }
   </style>
 </head>
 <body>
@@ -133,6 +141,16 @@
       <button type="button" data-amplifier="VELVET_CIRCUIT">VELVET CIRCUIT</button>
       <button type="button" data-amplifier="AXIOM_BLOOM">AXIOM BLOOM</button>
     </div>
+    <fieldset class="focus-lens" id="focus-lens" hidden>
+      <legend>BINARY × TRINARY RESONANCE LENS</legend>
+      <p>A low electric burst and a bright stochastic burst alternate against three Atlantean FM chime voices share a 12-step cycle, drifting through tension and alignment. The background matches Exursive Flow. This is a musical experiment in attention.</p>
+      <div class="lens-controls">
+        <label>Binary bursts <input id="lens-binary" type="range" min="0" max="100" value="60"></label>
+        <label>Trinary harmony <input id="lens-trinary" type="range" min="0" max="100" value="70"></label>
+        <label>Phase tension <input id="lens-coupling" type="range" min="0" max="100" value="60"></label>
+      </div>
+      <output id="lens-phase">2 : 3 · ALIGNMENT</output>
+    </fieldset>
     <details class="track-composer">
       <summary>STOCHASTIC TRACK COMPOSER</summary>
       <p>Combine hyperfluxes into a new journey. Produced EDM / IDM hyperdynamics: a focused low end, swung percussion, recurring hooks and evolving stereo textures. Generate a new combination every 3 seconds, or set your own interval. Emerge / Rest pauses and resumes.</p>
@@ -344,6 +362,7 @@
       exursion: 0.78,
       generation: 0,
       lifewayMode: null,
+      lensBinary:.6, lensTrinary:.7, lensCoupling:.6,
       biodynamicShader: true
     };
 
@@ -490,7 +509,7 @@
 
     function setupCognitiveSynth() {
       if (!audioCtx) return;
-      const atmosphereLevel = state.amplifierMode === 'EXURSIVE_FLOW' ? .2 : 1;
+      const atmosphereLevel = ['EXURSIVE_FLOW','HYPERFOCUS_LENS'].includes(state.amplifierMode) ? .2 : 1;
 
       binauralGain = audioCtx.createGain();
       binauralGain.gain.value = state.binauralEnabled ? state.binauralVol * 0.2 * atmosphereLevel : 0.0;
@@ -798,7 +817,7 @@
       NOETIC_HYPERFLUX: { groove:'dnb', label:'Neuro drum & bass', tone:'glass', swing:0.055, density:0.7 },
       POLYATTENTION: { groove:'footwork', label:'Atlantean crystal streams / fluid cyberutopia', tone:'cyber', swing:0.11, density:0.7 },
       EXURSIVE_FLOW: { groove:'dub', label:'Hypnotic noise-electronics / surging synth walls', tone:'drive', swing:0, density:0.6 },
-      HYPERFOCUS_LENS: { groove:'micro', label:'Microhouse', tone:'pluck', swing:0.1, density:0.4 },
+      HYPERFOCUS_LENS: { groove:'micro', label:'Binary electric bursts / trinary resonance lens', tone:'warm', swing:0, density:0.4 },
       DIVERGENCE_ENGINE: { groove:'wonky', label:'Wonky / glitch-hop', tone:'fm', swing:0.19, density:0.8 },
       PHASEWEAVE: { groove:'garage', label:'UK garage / 2-step', tone:'glass', swing:0.18, density:0.6 },
       AETHERFLUX: { groove:'ambient', label:'Ambient / illbient', tone:'warm', swing:0.1, density:0.3 },
@@ -846,7 +865,7 @@
       stereo.pan.value = bass ? 0 : pan;
       if (liquid) stereo.pan.linearRampToValueAtTime(Math.max(-.8, Math.min(.8, pan + Math.sin(time * .7) * .3)), time + duration);
       carrier.connect(filter); filter.connect(envelope); envelope.connect(stereo); stereo.connect(productionBus);
-      if (['NOETIC_SURGE','POLYATTENTION'].includes(state.amplifierMode) && !bass && tone !== 'acid') stereo.connect(crystalEcho);
+      if (['NOETIC_SURGE','POLYATTENTION','HYPERFOCUS_LENS'].includes(state.amplifierMode) && !bass && tone !== 'acid') stereo.connect(crystalEcho);
       carrier.start(time); color.start(time);
       carrier.stop(time + duration + .01); color.stop(time + duration + .01);
     }
@@ -955,6 +974,84 @@
       }
     }
 
+    function lensPhaseAt(seconds) {
+      const orbit = (seconds % 12) / 12;
+      const tension = (.5 - .5 * Math.cos(orbit * Math.PI * 2)) * state.lensCoupling;
+      return { tension, orbit, label:tension < .12 ? 'ALIGNMENT' : tension > .4 ? 'PHASE TENSION' : 'CONVERGENCE' };
+    }
+
+    function playTrinaryChime(time, hz, duration, level, pan) {
+      if (level <= 0) return;
+      const tick = 15 / Math.max(60, state.bpm);
+      // Reuse Noetic Surge's instruments, register and articulation rather than a pad imitation.
+      for (let fragment=0;fragment<3;fragment++) {
+        playSurgeSpark(time + tick * fragment / 3, hz, .026, level * (2.6 - fragment * .55),
+          Math.max(-.8, Math.min(.8, pan + (fragment - 1) * .12)));
+      }
+      playProductionVoice(time, hz, duration, 'glass', level * 1.6, pan);
+    }
+
+    function playBinaryBurst(time, hz, level, pan, tension, variant = 0) {
+      if (level <= 0) return;
+      const bright = variant === 1;
+      const duration = bright ? .055 + Math.random() * .025 : .10 + Math.random() * .025;
+      const voice = reserveVoice(Math.max(0, time - audioCtx.currentTime) + duration + .04);
+      if (!voice) return;
+      const carrier = audioCtx.createOscillator(); carrier.type = 'sine';
+      const modulator = audioCtx.createOscillator(); modulator.type = 'sine';
+      const pitch = hz * (bright ? 4 : 2);
+      carrier.frequency.setValueAtTime(pitch, time);
+      carrier.detune.value = tension * (Math.random() - .5) * 8;
+      modulator.frequency.value = pitch * (bright ? 3.1 + Math.random() * 2.4 : 1.35 + Math.random() * .35);
+      const depth = audioCtx.createGain();
+      depth.gain.setValueAtTime(pitch * (bright ? 2.4 + Math.random() : .8 + Math.random() * .5), time);
+      depth.gain.exponentialRampToValueAtTime(.01, time + duration * .85);
+      const filter = audioCtx.createBiquadFilter(); filter.type = bright ? 'bandpass' : 'lowpass';
+      filter.frequency.setValueAtTime(bright ? 2300 + Math.random() * 1400 : 1400 + Math.random() * 500, time);
+      filter.frequency.exponentialRampToValueAtTime(bright ? 1100 : 450, time + duration);
+      filter.Q.value = bright ? 1.6 : .7;
+      const gain = audioCtx.createGain();
+      const peak = level * (.9 + Math.random() * .1);
+      gain.gain.setValueAtTime(.0001, time);
+      gain.gain.linearRampToValueAtTime(peak, time + .002);
+      gain.gain.exponentialRampToValueAtTime(.0001, time + duration);
+      const stereo = audioCtx.createStereoPanner(); stereo.pan.value = pan;
+      modulator.connect(depth); depth.connect(carrier.frequency);
+      carrier.connect(filter); filter.connect(gain); gain.connect(stereo); stereo.connect(masterGain);
+      trackVoice(voice, [carrier, modulator], [depth, filter, gain, stereo]);
+      carrier.start(time); modulator.start(time);
+      carrier.stop(time + duration + .005); modulator.stop(time + duration + .005);
+    }
+
+    function playLensVoice(time, hz, duration, level, pan, tension, role, variant = 0) {
+      if (role === 'trinary') playTrinaryChime(time, hz, duration, level, pan);
+      else playBinaryBurst(time, hz, level, pan, tension, variant);
+    }
+
+    function playHyperfocusLens(time, sixteenth, elapsed, fade, foreground = true) {
+      const phase = lensPhaseAt(elapsed);
+      const cell = stepIndex % 12;
+      const anchor = 130.812;
+      if (foreground && stepIndex % 2 === 0) {
+        const root = 65.406 * Math.pow(2, arrangementScores.EXURSIVE_FLOW.harmony[Math.floor(elapsed / 14) % 6] / 12);
+        playProductionVoice(time, root * [1,1,2,1,1,1,1.5,1][(stepIndex % 16) / 2], sixteenth * 1.15, 'drive', .025 * fade, 0);
+      }
+      // Two distinct electric bursts against three spectral chime entries per twelve ticks.
+      if (cell % 6 === 0) {
+        const index = cell / 6;
+        playLensVoice(time, anchor * [1,2][index], .13,
+          .85 * state.lensBinary * fade, index ? .3 : -.3, phase.tension, 'binary', index);
+      }
+      if (cell % 4 === 0) {
+        const index = cell / 4;
+        playLensVoice(time + sixteenth * phase.tension * .18, anchor * [16,24,32][index], sixteenth * 2.8,
+          .20 * state.lensTrinary * fade * (1 - phase.tension * .18), [-.55,0,.55][index], phase.tension, 'trinary');
+      }
+      if (foreground) {
+        document.getElementById('lens-phase').textContent = `2 : 3 · ${phase.label} · ${Math.round((1-phase.tension) * 100)}% alignment`;
+      }
+    }
+
     function playProducedHyperdynamic(step, now) {
       const section = generatedTrack ? generatedTrack.sections[generatedTrack.section] : { foundation:state.amplifierMode, layers:[], mutation:0 };
       const style = productionStyles[section.foundation];
@@ -970,6 +1067,11 @@
       };
       const elapsed = arrangementTime();
       const progress = generatedTrack ? elapsed / generatedTrack.duration : (elapsed % 42) / 42;
+      if (section.foundation === 'HYPERFOCUS_LENS') {
+        const lensFade = generatedTrack ? Math.min(1, Math.max(.01, (generatedTrack.duration - elapsed) / 2)) : 1;
+        playHyperfocusLens(now, sixteenth, elapsed, lensFade);
+        return;
+      }
       if (section.foundation === 'POLYATTENTION') {
         const sampleFade = generatedTrack ? Math.min(1, Math.max(.01, (generatedTrack.duration - elapsed) / 2)) : 1;
         playPolySampleBreaks(step, time, sixteenth, seed, elapsed, sampleFade);
@@ -1088,6 +1190,10 @@
       // Supporting modes supply timbre and counterpoint, never extra kick/sub lanes.
       section.layers.forEach((mode, index) => {
         const layer = productionStyles[mode];
+        if (mode === 'HYPERFOCUS_LENS') {
+          playHyperfocusLens(time, sixteenth, elapsed, fade * .4, false);
+          return;
+        }
         if (mode === 'EXURSIVE_FLOW' && step === 0) playSoundSlab(time, root * 2, sixteenth * 5, .42 * fade);
         if (mode === 'POLYATTENTION') {
           playPolySampleBreaks(step, time, sixteenth, seed, elapsed, fade * .4);
@@ -1751,7 +1857,7 @@
 
     function applyAudioParameters() {
         if (!audioCtx || audioCtx.state === 'closed') return;
-        const atmosphereLevel = state.amplifierMode === 'EXURSIVE_FLOW' ? .2 : 1;
+        const atmosphereLevel = ['EXURSIVE_FLOW','HYPERFOCUS_LENS'].includes(state.amplifierMode) ? .2 : 1;
         if (filterNode) {
           filterNode.frequency.value = 200 + (state.filterCutoff * 18000);
           filterNode.Q.value = Math.min(12, 0.5 + (state.resonance || 0) * 14);
@@ -1836,7 +1942,7 @@
       NOETIC_SURGE: { title:'Noetic Surge', description:'An Atlantean blue space-tech stream: liquid-crystal arpeggios, luminous FM tides and echoing celestial bells open into freedom, wonder and cosmic mystery.', genre:'ELECTRO_TRANCE', bpm:144, geometry:'AURORA_WAVES', primaryColor:'#48C8FF', secondaryColor:'#146BFF', accentColor:'#C1F6FF', divergence:.52, multiplicity:.62, coherence:.68, exursion:.48 },
       POLYATTENTION: { title:'Polyattention', description:'Only chopped cybernetic samples: soft liquid-FM chimes, luminous crystal fragments and flowing electronic ripples drift through a stochastic Atlantean soundstream. No melody or chord progression. No drums, percussion or continuous hum.', genre:'GENERATIVE_IDM', lifewayMode:null, filterCutoff:.85, resonance:.12, binauralEnabled:false, solfeggioEnabled:false, isochronicEnabled:false, harmonicVol:0, bpm:136, geometry:'QUANTUM_PARTICLES', divergence:.66, multiplicity:.94, coherence:.34, exursion:.7 },
       EXURSIVE_FLOW: { title:'Exursive Flow', description:'An unwavering electronic pulse drives overlapping distorted synth walls. Slow-building harmonic pressure, static backbeats and escalating stereo bursts gather into a dense, hypnotic surge.', genre:'EXURSIVE_TECHNO', bpm:128, geometry:'COSMIC_TUNNEL', divergence:.82, multiplicity:.58, coherence:.43, exursion:.98 },
-      HYPERFOCUS_LENS: { title:'Hyperfocus Lens', description:'A persistent sonic attractor remains coherent through surrounding change.', genre:'MINIMAL_PROGRESSIVE', bpm:120, geometry:'SACRED_MANDALA', divergence:.28, multiplicity:.34, coherence:.96, exursion:.25 },
+      HYPERFOCUS_LENS: { title:'Hyperfocus Lens', description:'Two contrasting electric bursts and three Atlantean crystal voices interleave above the quiet Exursive tone. The trinary layer uses Noetic Surge’s high-register spectral sparks and glass chimes, with quick stereo twinkles and resonant tails. Gentle phase tension resolves into alignment, exploring a musical hypothesis about resonance and attention.', genre:'RESONANCE_LENS', bpm:156, geometry:'SACRED_MANDALA', primaryColor:'#48C8FF', secondaryColor:'#67F0E8', accentColor:'#DCF7FF', divergence:.28, multiplicity:.34, coherence:.96, exursion:.25 },
       DIVERGENCE_ENGINE: { title:'Ecosystems & Hyperecosystems', description:'Nested musical ecologies bifurcate, overlap and create higher-order habitats of sound.', genre:'BIOCYBER_TRANCE', bpm:142, geometry:'QUANTUM_PARTICLES', divergence:.98, multiplicity:.76, coherence:.36, exursion:.86 },
       PHASEWEAVE: { title:'Phaseweave', description:'Asynchronous voices discover and lose transient synchronization.', genre:'POLYRHYTHMIC_TECHNO', bpm:132, geometry:'AURORA_WAVES', divergence:.5, multiplicity:.72, coherence:.7, exursion:.52 },
       AETHERFLUX: { title:'Aetherflux', description:'Slow spectral immensity is punctuated by rare high-information events.', genre:'COSMIC_AMBIENT', bpm:92, geometry:'AURORA_WAVES', divergence:.62, multiplicity:.3, coherence:.6, exursion:.72 },
@@ -1866,6 +1972,7 @@
         Object.assign(state, { binauralEnabled:false, solfeggioEnabled:false, isochronicEnabled:false, harmonicVol:0, lifewayMode:null, filterCutoff:.85, resonance:.12 });
       }
       applyAudioParameters();
+      document.getElementById('focus-lens').hidden = section.foundation !== 'HYPERFOCUS_LENS';
       amplifierTitle.textContent = 'Stochastic alliance';
       amplifierDescription.textContent = trackLabel(section);
       document.querySelectorAll('[data-amplifier]').forEach(button => {
@@ -1958,6 +2065,7 @@
       maximizeShaderButton.textContent = document.body.classList.contains('shader-maximized') ? 'RESTORE UI' : 'MAXIMIZE SHADER';
     });
     function syncWebControls() {
+      document.getElementById('focus-lens').hidden = state.amplifierMode !== 'HYPERFOCUS_LENS';
       awakenButton.classList.toggle('live', state.isPlaying);
       awakenButton.setAttribute('aria-pressed', String(state.isPlaying));
       awakenButton.setAttribute('title', state.isPlaying ? 'Rest: pause the selected biodynamic' : 'Emerge: start the selected biodynamic');
@@ -1969,6 +2077,11 @@
       isoToggle.classList.toggle('active', state.isochronicEnabled);
       solToggle.classList.toggle('active', state.solfeggioEnabled);
       window.setEngineState(JSON.stringify(state));
+    }
+    for (const [id, key] of [['lens-binary','lensBinary'],['lens-trinary','lensTrinary'],['lens-coupling','lensCoupling']]) {
+      document.getElementById(id).addEventListener('input', event => {
+        state[key] = Math.max(0, Math.min(1, Number(event.target.value) / 100));
+      });
     }
     awakenButton.addEventListener('click', () => { state.isPlaying = !state.isPlaying; syncWebControls(); });
     tempoControl.addEventListener('input', event => { state.bpm = Number(event.target.value); syncWebControls(); });
@@ -2308,6 +2421,16 @@
           ctx.strokeStyle = ring % 4 ? state.primaryColor : state.accentColor; ctx.globalAlpha = .22 + ring / 28; ctx.stroke();
         }
         ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(0, 0, 8 + energy * 24, 0, Math.PI * 2); ctx.fillStyle = state.secondaryColor; ctx.fill();
+        const phase = lensPhaseAt(arrangementTime());
+        const orbit = arrangementTime() / (180 / state.bpm) * Math.PI * 2;
+        for (const [count, radius, color] of [[2,105,state.secondaryColor],[3,168,state.primaryColor]]) {
+          for (let voice=0;voice<count;voice++) {
+            const angle = voice * Math.PI * 2 / count + orbit / count + (count === 3 ? phase.tension * .6 : 0);
+            ctx.beginPath(); ctx.arc(Math.cos(angle) * radius, Math.sin(angle) * radius, 5 + energy * 6, 0, Math.PI * 2);
+            ctx.fillStyle = color; ctx.globalAlpha = .8; ctx.fill();
+          }
+        }
+        ctx.globalAlpha = 1;
       } else if (mode === 'DIVERGENCE_ENGINE') {
         const colonies = 7;
         for (let colony = 0; colony < colonies; colony++) {

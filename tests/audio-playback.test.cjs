@@ -121,13 +121,13 @@ function habitat({ scoreOnly = false } = {}) {
     this.scoreEvents = [];
   `, sandbox);
   if (scoreOnly) vm.runInContext(`
-    for (const name of ['playKick','playSnare','playHiHat','playGhostSnare','playBass','playMysticalSub','playSynthLead','playSurgeSpark','playProductionVoice','playCyberSample','playSoundSlab','playExursivePercussion']) {
+    for (const name of ['playKick','playSnare','playHiHat','playGhostSnare','playBass','playMysticalSub','playSynthLead','playSurgeSpark','playProductionVoice','playCyberSample','playSoundSlab','playExursivePercussion','playLensVoice']) {
       const record = (...args) => scoreEvents.push({ instrument:name, step:stepIndex, time:args[0], args:args.slice(1) });
       eval(name + ' = record');
     }
   `, sandbox);
   return { contexts, intervals, groups, element, document, window, errors, inspect: sandbox.inspectAudio,
-    atmosphere: sandbox.inspectAtmosphere, track: sandbox.inspectTrack, arrangement: sandbox.inspectArrangement, scoreEvents: sandbox.scoreEvents, spark: sandbox.playSurgeSpark,
+    atmosphere: sandbox.inspectAtmosphere, track: sandbox.inspectTrack, arrangement: sandbox.inspectArrangement, scoreEvents: sandbox.scoreEvents, spark: sandbox.playSurgeSpark, trinary: sandbox.playTrinaryChime, binaryBurst: sandbox.playBinaryBurst,
     click: (kind, name) => element(`${kind}:${name}`).click(),
     advance(seconds) { const ctx = sandbox.inspectAudio().context; ctx.advance(seconds); for (const fn of [...intervals.values()]) fn(); } };
 }
@@ -153,7 +153,7 @@ test('Noetic Surge has electronic twinkles and dynamic waves above a straight tr
   assert.ok(h.scoreEvents.some(e => e.instrument === 'playProductionVoice' && e.args[2] === 'glass'));
   assert.ok(h.scoreEvents.some(e => e.instrument === 'playProductionVoice' && e.args[2] === 'fm'));
   for (const mode of h.groups.get('[data-amplifier]')) {
-    if (mode.dataset.amplifier === 'NOETIC_SURGE') continue;
+    if (['NOETIC_SURGE','HYPERFOCUS_LENS'].includes(mode.dataset.amplifier)) continue;
     h.scoreEvents.length = 0; mode.click(); await settle();
     for (let tick=0; tick<32; tick++) h.advance(.125);
     assert.equal(h.scoreEvents.filter(e => e.instrument === 'playSurgeSpark').length, 0, 'Surge bursts must not leak into other biodynamics');
@@ -203,7 +203,7 @@ test('every biodynamic develops for 42 audio seconds without a short arrangement
     assert.equal(chapters.size, 6);
     const signatures = [];
     for (let start = 0; start + 32 < h.inspect().step; start += 32) {
-      const phrase = h.scoreEvents.filter(e => ['playSynthLead','playProductionVoice','playCyberSample','playSoundSlab','playExursivePercussion'].includes(e.instrument) && e.step >= start && e.step < start + 32)
+      const phrase = h.scoreEvents.filter(e => ['playSynthLead','playProductionVoice','playCyberSample','playSoundSlab','playExursivePercussion','playLensVoice'].includes(e.instrument) && e.step >= start && e.step < start + 32)
         .map(e => [e.step - start, ...e.args]);
       signatures.push(JSON.stringify(phrase));
     }
@@ -601,4 +601,107 @@ test('Exursive surges sit above its pulse and continuous tone bed', async () => 
   assert.ok(h.atmosphere().carrier > bed.carrier * 4);
   assert.ok(h.atmosphere().beacon > bed.beacon * 4);
   assert.equal(h.errors.length, 0);
+});
+
+
+test('Hyperfocus multiplexes two drone entries against three Atlantean harmonic entries', async () => {
+  const h = habitat({ scoreOnly:true }); h.click('amplifier','HYPERFOCUS_LENS'); await settle();
+  assert.equal(h.arrangement().bpm, 156);
+  for (let i=0;i<11;i++) h.advance(15 / h.arrangement().bpm);
+  const voices = h.scoreEvents.filter(e => e.instrument === 'playLensVoice');
+  const binary = voices.filter(e => e.args[5] === 'binary');
+  const trinary = voices.filter(e => e.args[5] === 'trinary');
+  assert.deepEqual(Array.from(binary, e => e.step), [0,6]);
+  assert.deepEqual(Array.from(binary, e => e.args[6]), [0,1]);
+  assert.deepEqual(Array.from(trinary, e => e.step), [0,4,8]);
+  assert.deepEqual(Array.from(trinary, e => Math.round(e.args[0])), [2093,3139,4186]);
+  const background = h.scoreEvents.filter(e => e.instrument === 'playProductionVoice' && e.args[2] === 'drive');
+  assert.ok(Math.min(...voices.map(e => e.args[2])) > Math.max(...background.map(e => e.args[3])) * 4);
+  assert.ok(binary.every(e => e.args[1] < 2 * 15 / h.arrangement().bpm));
+  assert.ok(trinary.every(e => e.args[1] < 4 * 15 / h.arrangement().bpm));
+  assert.equal(h.scoreEvents.filter(e => ['playKick','playSnare','playHiHat','playSoundSlab','playExursivePercussion'].includes(e.instrument)).length, 0);
+  assert.equal(h.element('focus-lens').hidden, false);
+});
+
+test('Hyperfocus phase tension resolves, its controls work, and it shares the Exursive background', async () => {
+  const h = habitat({ scoreOnly:true }); h.click('amplifier','EXURSIVE_FLOW'); await settle();
+  const background = h.atmosphere();
+  h.click('amplifier','HYPERFOCUS_LENS'); await settle();
+  assert.deepEqual(h.atmosphere(), background);
+  for (let i=0;i<100;i++) h.advance(.125);
+  let voices = h.scoreEvents.filter(e => e.instrument === 'playLensVoice');
+  assert.ok(voices.some(e => e.args[4] > .55));
+  assert.ok(voices.some(e => e.step >= 96 && e.args[4] < .01));
+  h.element('lens-coupling').value = '0'; h.element('lens-coupling').emit('input');
+  h.scoreEvents.length = 0;
+  for (let i=0;i<24;i++) h.advance(.125);
+  voices = h.scoreEvents.filter(e => e.instrument === 'playLensVoice');
+  assert.ok(voices.length > 0 && voices.every(e => e.args[4] === 0));
+  h.click('amplifier','VIRIDION'); await settle();
+  assert.equal(h.element('focus-lens').hidden, true);
+  assert.equal(h.errors.length, 0);
+});
+
+test('Hyperfocus FM harmony remains bounded through rest and context reconstruction', async () => {
+  const h = habitat(); h.click('amplifier','HYPERFOCUS_LENS'); await settle();
+  for (let i=0;i<400;i++) { h.advance(.125); assert.ok(h.inspect().voiceCount <= 22); }
+  h.element('awaken').click(); await settle();
+  assert.equal(h.inspect().voiceCount, 0);
+  const previous = h.inspect().context;
+  previous.change('closed');
+  h.element('awaken').click(); await settle();
+  assert.notEqual(h.inspect().context, previous);
+  assert.equal(h.inspect().context.state, 'running');
+  h.click('amplifier','POLYATTENTION'); await settle();
+  assert.equal(h.element('focus-lens').hidden, true);
+  assert.equal(h.errors.length, 0);
+});
+
+
+test('Trinary harmony uses Surge spectral spark synthesis with clear high-register pitches', async () => {
+  const h = habitat(); h.click('amplifier','HYPERFOCUS_LENS'); await settle();
+  const ctx = h.inspect().context; ctx.advance(5);
+  for (const pitch of [2093,3139,4186]) {
+    const before = ctx.nodes.length;
+    h.trinary(ctx.currentTime, pitch, .25, .14, .5);
+    const added = ctx.nodes.slice(before);
+    const sources = added.filter(n => n.source);
+    assert.equal(sources.length, 8, 'Three two-oscillator sparks plus the actual Surge glass voice');
+    for (let i=0;i<6;i+=2) {
+      assert.equal(sources[i].frequency.value, pitch);
+      assert.equal(sources[i+1].frequency.value, pitch * 1.5);
+      assert.ok(sources[i].scheduledStopAt - sources[i].startAt <= .026001);
+    }
+    assert.ok(sources[2].startAt > sources[0].startAt && sources[4].startAt > sources[2].startAt);
+    ctx.advance(1);
+    for (const node of sources) assert.equal(node.connections.length, 0);
+  }
+  h.element('awaken').click(); await settle();
+  assert.equal(h.inspect().voiceCount, 0);
+  assert.equal(h.errors.length, 0);
+});
+
+
+test('Binary alternates two distinct short stochastic electric bursts, with no sustained buzz', async () => {
+  const h = habitat(); h.click('amplifier','HYPERFOCUS_LENS'); await settle();
+  const ctx = h.inspect().context; ctx.advance(2);
+  const signatures = new Set();
+  for (const variant of [0,1,0,1]) {
+    const before = ctx.nodes.length;
+    h.binaryBurst(ctx.currentTime, 130.812 * (variant ? 2 : 1), .5, variant ? .3 : -.3, .6, variant);
+    const nodes = ctx.nodes.slice(before), sources = nodes.filter(n => n.source);
+    assert.equal(sources.length, 2);
+    const length = sources[0].scheduledStopAt - sources[0].startAt;
+    assert.ok(length < (variant ? .086 : .131));
+    assert.ok(nodes.some(n => n.type === (variant ? 'bandpass' : 'lowpass')));
+    signatures.add(sources[1].frequency.value);
+    ctx.advance(.2);
+    assert.ok(sources.every(n => n.connections.length === 0));
+  }
+  assert.equal(signatures.size, 4, 'Each electric burst should have stochastic spectral variation');
+  const before = ctx.nodes.length;
+  h.binaryBurst(ctx.currentTime, 130, 0, 0, 0, 0);
+  assert.equal(ctx.nodes.length, before);
+  h.element('awaken').click(); await settle();
+  assert.equal(h.inspect().voiceCount, 0); assert.equal(h.errors.length, 0);
 });
