@@ -60,7 +60,7 @@ function habitat({ scoreOnly = false } = {}) {
     createDelay() { return new Node(this); }
     createDynamicsCompressor() { return new Node(this); }
     createAnalyser() { const n = new Node(this); n.frequencyBinCount = 64; return n; }
-    createBuffer(channels, size) { return { getChannelData: () => new Float32Array(size) }; }
+    createBuffer(channels, size) { const data = Array.from({length:channels}, () => new Float32Array(size)); return { length:size, getChannelData: channel => data[channel] }; }
     createPeriodicWave() { return { context: this }; }
     change(state) { this.state = state; this.emit('statechange'); }
     transition(kind) {
@@ -613,6 +613,8 @@ test('Hyperfocus multiplexes two drone entries against three Atlantean harmonic 
   const trinary = voices.filter(e => e.args[5] === 'trinary');
   assert.deepEqual(Array.from(binary, e => e.step), [0,6]);
   assert.deepEqual(Array.from(binary, e => e.args[6]), [0,1]);
+  assert.ok(voices.some(e => e.args[5] === 'binary-detail'), 'Digital detail packets should articulate the gaps between primary pulses');
+  assert.ok(trinary.every(e => e.args[2] > .22), 'The spectral chimes should remain prominent');
   assert.deepEqual(Array.from(trinary, e => e.step), [0,4,8]);
   assert.deepEqual(Array.from(trinary, e => Math.round(e.args[0])), [2093,3139,4186]);
   const background = h.scoreEvents.filter(e => e.instrument === 'playProductionVoice' && e.args[2] === 'drive');
@@ -682,23 +684,25 @@ test('Trinary harmony uses Surge spectral spark synthesis with clear high-regist
 });
 
 
-test('Binary alternates two distinct short stochastic electric bursts, with no sustained buzz', async () => {
+test('Binary point tones use only clear sine oscillators with short click-free envelopes', async () => {
   const h = habitat(); h.click('amplifier','HYPERFOCUS_LENS'); await settle();
   const ctx = h.inspect().context; ctx.advance(2);
-  const signatures = new Set();
-  for (const variant of [0,1,0,1]) {
+  const pitches = [];
+  for (const variant of [0,1]) {
     const before = ctx.nodes.length;
-    h.binaryBurst(ctx.currentTime, 130.812 * (variant ? 2 : 1), .5, variant ? .3 : -.3, .6, variant);
+    h.binaryBurst(ctx.currentTime, 130, .5, variant ? .3 : -.3, .6, variant);
     const nodes = ctx.nodes.slice(before), sources = nodes.filter(n => n.source);
-    assert.equal(sources.length, 2);
-    const length = sources[0].scheduledStopAt - sources[0].startAt;
-    assert.ok(length < (variant ? .086 : .131));
-    assert.ok(nodes.some(n => n.type === (variant ? 'bandpass' : 'lowpass')));
-    signatures.add(sources[1].frequency.value);
-    ctx.advance(.2);
-    assert.ok(sources.every(n => n.connections.length === 0));
+    assert.equal(sources.length, 1);
+    const source = sources[0];
+    assert.equal(source.type, 'sine');
+    assert.equal(source.buffer, undefined, 'No static or sample noise');
+    assert.ok(source.scheduledStopAt - source.startAt < .1);
+    assert.equal(source.connections[0].gain.value, 0, 'Each point ends at zero gain');
+    assert.ok(nodes.every(n => !n.curve && !['highpass','bandpass'].includes(n.type)));
+    pitches.push(source.frequency.value);
+    ctx.advance(.2); assert.equal(source.connections.length, 0);
   }
-  assert.equal(signatures.size, 4, 'Each electric burst should have stochastic spectral variation');
+  assert.ok(pitches[1] > pitches[0] * 1.7);
   const before = ctx.nodes.length;
   h.binaryBurst(ctx.currentTime, 130, 0, 0, 0, 0);
   assert.equal(ctx.nodes.length, before);

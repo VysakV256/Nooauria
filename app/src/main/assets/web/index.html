@@ -143,10 +143,10 @@
     </div>
     <fieldset class="focus-lens" id="focus-lens" hidden>
       <legend>BINARY × TRINARY RESONANCE LENS</legend>
-      <p>A low electric burst and a bright stochastic burst alternate against three Atlantean FM chime voices share a 12-step cycle, drifting through tension and alignment. The background matches Exursive Flow. This is a musical experiment in attention.</p>
+      <p>Two streams of clean electronic sine-tone points alternate against three Atlantean spectral voices in a 12-step cycle, drifting through tension and alignment. The background matches Exursive Flow. This is a musical experiment in attention.</p>
       <div class="lens-controls">
-        <label>Binary bursts <input id="lens-binary" type="range" min="0" max="100" value="60"></label>
-        <label>Trinary harmony <input id="lens-trinary" type="range" min="0" max="100" value="70"></label>
+        <label>Binary point tones <input id="lens-binary" type="range" min="0" max="100" value="75"></label>
+        <label>Trinary harmony <input id="lens-trinary" type="range" min="0" max="100" value="80"></label>
         <label>Phase tension <input id="lens-coupling" type="range" min="0" max="100" value="60"></label>
       </div>
       <output id="lens-phase">2 : 3 · ALIGNMENT</output>
@@ -362,7 +362,7 @@
       exursion: 0.78,
       generation: 0,
       lifewayMode: null,
-      lensBinary:.6, lensTrinary:.7, lensCoupling:.6,
+      lensBinary:.75, lensTrinary:.8, lensCoupling:.6,
       biodynamicShader: true
     };
 
@@ -817,7 +817,7 @@
       NOETIC_HYPERFLUX: { groove:'dnb', label:'Neuro drum & bass', tone:'glass', swing:0.055, density:0.7 },
       POLYATTENTION: { groove:'footwork', label:'Atlantean crystal streams / fluid cyberutopia', tone:'cyber', swing:0.11, density:0.7 },
       EXURSIVE_FLOW: { groove:'dub', label:'Hypnotic noise-electronics / surging synth walls', tone:'drive', swing:0, density:0.6 },
-      HYPERFOCUS_LENS: { groove:'micro', label:'Binary electric bursts / trinary resonance lens', tone:'warm', swing:0, density:0.4 },
+      HYPERFOCUS_LENS: { groove:'micro', label:'Pure point-tone pulses / trinary spectral lens', tone:'warm', swing:0, density:0.4 },
       DIVERGENCE_ENGINE: { groove:'wonky', label:'Wonky / glitch-hop', tone:'fm', swing:0.19, density:0.8 },
       PHASEWEAVE: { groove:'garage', label:'UK garage / 2-step', tone:'glass', swing:0.18, density:0.6 },
       AETHERFLUX: { groove:'ambient', label:'Ambient / illbient', tone:'warm', swing:0.1, density:0.3 },
@@ -985,7 +985,7 @@
       const tick = 15 / Math.max(60, state.bpm);
       // Reuse Noetic Surge's instruments, register and articulation rather than a pad imitation.
       for (let fragment=0;fragment<3;fragment++) {
-        playSurgeSpark(time + tick * fragment / 3, hz, .026, level * (2.6 - fragment * .55),
+        playSurgeSpark(time + tick * fragment / 3, hz, .026, level * (2.8 - fragment * .55),
           Math.max(-.8, Math.min(.8, pan + (fragment - 1) * .12)));
       }
       playProductionVoice(time, hz, duration, 'glass', level * 1.6, pan);
@@ -994,33 +994,30 @@
     function playBinaryBurst(time, hz, level, pan, tension, variant = 0) {
       if (level <= 0) return;
       const bright = variant === 1;
-      const duration = bright ? .055 + Math.random() * .025 : .10 + Math.random() * .025;
+      const points = bright ? 3 : 2;
+      const spacing = bright ? .027 : .04;
+      const pointLength = bright ? .024 : .036;
+      const duration = spacing * (points - 1) + pointLength;
       const voice = reserveVoice(Math.max(0, time - audioCtx.currentTime) + duration + .04);
       if (!voice) return;
-      const carrier = audioCtx.createOscillator(); carrier.type = 'sine';
-      const modulator = audioCtx.createOscillator(); modulator.type = 'sine';
-      const pitch = hz * (bright ? 4 : 2);
-      carrier.frequency.setValueAtTime(pitch, time);
-      carrier.detune.value = tension * (Math.random() - .5) * 8;
-      modulator.frequency.value = pitch * (bright ? 3.1 + Math.random() * 2.4 : 1.35 + Math.random() * .35);
-      const depth = audioCtx.createGain();
-      depth.gain.setValueAtTime(pitch * (bright ? 2.4 + Math.random() : .8 + Math.random() * .5), time);
-      depth.gain.exponentialRampToValueAtTime(.01, time + duration * .85);
-      const filter = audioCtx.createBiquadFilter(); filter.type = bright ? 'bandpass' : 'lowpass';
-      filter.frequency.setValueAtTime(bright ? 2300 + Math.random() * 1400 : 1400 + Math.random() * 500, time);
-      filter.frequency.exponentialRampToValueAtTime(bright ? 1100 : 450, time + duration);
-      filter.Q.value = bright ? 1.6 : .7;
+      const source = audioCtx.createOscillator(); source.type = 'sine';
+      // One steady pure frequency per packet: no noise, FM, bit crushing or pitch stretch.
+      const choice = Math.floor(Math.random() * 4);
+      source.frequency.setValueAtTime(bright ? 2700 + choice * 180 : 1100 + choice * 90, time);
       const gain = audioCtx.createGain();
-      const peak = level * (.9 + Math.random() * .1);
-      gain.gain.setValueAtTime(.0001, time);
-      gain.gain.linearRampToValueAtTime(peak, time + .002);
-      gain.gain.exponentialRampToValueAtTime(.0001, time + duration);
+      gain.gain.setValueAtTime(0, time);
+      for (let point=0;point<points;point++) {
+        const onset = time + point * spacing;
+        const peak = level * (bright ? .94 : .9) / (1 + point * .12);
+        gain.gain.setValueAtTime(0, onset);
+        gain.gain.linearRampToValueAtTime(peak, onset + .004);
+        gain.gain.setValueAtTime(peak, onset + pointLength - .007);
+        gain.gain.linearRampToValueAtTime(0, onset + pointLength);
+      }
       const stereo = audioCtx.createStereoPanner(); stereo.pan.value = pan;
-      modulator.connect(depth); depth.connect(carrier.frequency);
-      carrier.connect(filter); filter.connect(gain); gain.connect(stereo); stereo.connect(masterGain);
-      trackVoice(voice, [carrier, modulator], [depth, filter, gain, stereo]);
-      carrier.start(time); modulator.start(time);
-      carrier.stop(time + duration + .005); modulator.stop(time + duration + .005);
+      source.connect(gain); gain.connect(stereo); stereo.connect(masterGain);
+      trackVoice(voice, [source], [gain, stereo]);
+      source.start(time); source.stop(time + duration + .005);
     }
 
     function playLensVoice(time, hz, duration, level, pan, tension, role, variant = 0) {
@@ -1034,18 +1031,23 @@
       const anchor = 130.812;
       if (foreground && stepIndex % 2 === 0) {
         const root = 65.406 * Math.pow(2, arrangementScores.EXURSIVE_FLOW.harmony[Math.floor(elapsed / 14) % 6] / 12);
-        playProductionVoice(time, root * [1,1,2,1,1,1,1.5,1][(stepIndex % 16) / 2], sixteenth * 1.15, 'drive', .025 * fade, 0);
+        playProductionVoice(time, root * [1,1,2,1,1,1,1.5,1][(stepIndex % 16) / 2], sixteenth * 1.15, 'drive', .018 * fade, 0);
       }
       // Two distinct electric bursts against three spectral chime entries per twelve ticks.
       if (cell % 6 === 0) {
         const index = cell / 6;
         playLensVoice(time, anchor * [1,2][index], .13,
-          .85 * state.lensBinary * fade, index ? .3 : -.3, phase.tension, 'binary', index);
+          1.0 * state.lensBinary * fade, index ? .3 : -.3, phase.tension, 'binary', index);
+      }
+      const code = ((Math.floor(stepIndex / 12) + 1) * 0x45d9f3b) >>> 0;
+      if (cell % 6 !== 0 && ((code >>> cell) & 1)) {
+        playLensVoice(time, 0, .09, .36 * state.lensBinary * fade,
+          cell % 2 ? -.4 : .4, phase.tension, 'binary-detail', cell % 2);
       }
       if (cell % 4 === 0) {
         const index = cell / 4;
         playLensVoice(time + sixteenth * phase.tension * .18, anchor * [16,24,32][index], sixteenth * 2.8,
-          .20 * state.lensTrinary * fade * (1 - phase.tension * .18), [-.55,0,.55][index], phase.tension, 'trinary');
+          .34 * state.lensTrinary * fade * (1 - phase.tension * .18), [-.55,0,.55][index], phase.tension, 'trinary');
       }
       if (foreground) {
         document.getElementById('lens-phase').textContent = `2 : 3 · ${phase.label} · ${Math.round((1-phase.tension) * 100)}% alignment`;
@@ -1942,7 +1944,7 @@
       NOETIC_SURGE: { title:'Noetic Surge', description:'An Atlantean blue space-tech stream: liquid-crystal arpeggios, luminous FM tides and echoing celestial bells open into freedom, wonder and cosmic mystery.', genre:'ELECTRO_TRANCE', bpm:144, geometry:'AURORA_WAVES', primaryColor:'#48C8FF', secondaryColor:'#146BFF', accentColor:'#C1F6FF', divergence:.52, multiplicity:.62, coherence:.68, exursion:.48 },
       POLYATTENTION: { title:'Polyattention', description:'Only chopped cybernetic samples: soft liquid-FM chimes, luminous crystal fragments and flowing electronic ripples drift through a stochastic Atlantean soundstream. No melody or chord progression. No drums, percussion or continuous hum.', genre:'GENERATIVE_IDM', lifewayMode:null, filterCutoff:.85, resonance:.12, binauralEnabled:false, solfeggioEnabled:false, isochronicEnabled:false, harmonicVol:0, bpm:136, geometry:'QUANTUM_PARTICLES', divergence:.66, multiplicity:.94, coherence:.34, exursion:.7 },
       EXURSIVE_FLOW: { title:'Exursive Flow', description:'An unwavering electronic pulse drives overlapping distorted synth walls. Slow-building harmonic pressure, static backbeats and escalating stereo bursts gather into a dense, hypnotic surge.', genre:'EXURSIVE_TECHNO', bpm:128, geometry:'COSMIC_TUNNEL', divergence:.82, multiplicity:.58, coherence:.43, exursion:.98 },
-      HYPERFOCUS_LENS: { title:'Hyperfocus Lens', description:'Two contrasting electric bursts and three Atlantean crystal voices interleave above the quiet Exursive tone. The trinary layer uses Noetic Surge’s high-register spectral sparks and glass chimes, with quick stereo twinkles and resonant tails. Gentle phase tension resolves into alignment, exploring a musical hypothesis about resonance and attention.', genre:'RESONANCE_LENS', bpm:156, geometry:'SACRED_MANDALA', primaryColor:'#48C8FF', secondaryColor:'#67F0E8', accentColor:'#DCF7FF', divergence:.28, multiplicity:.34, coherence:.96, exursion:.25 },
+      HYPERFOCUS_LENS: { title:'Hyperfocus Lens', description:'Pure electronic point tones, precise stochastic pulse patterns and three forceful Atlantean crystal voices interleave above the quiet Exursive tone. The trinary layer uses Noetic Surge’s high-register spectral sparks and glass chimes, with quick stereo twinkles and resonant tails. Gentle phase tension resolves into alignment, exploring a musical hypothesis about resonance and attention.', genre:'RESONANCE_LENS', bpm:156, geometry:'SACRED_MANDALA', primaryColor:'#48C8FF', secondaryColor:'#67F0E8', accentColor:'#DCF7FF', divergence:.28, multiplicity:.34, coherence:.96, exursion:.25 },
       DIVERGENCE_ENGINE: { title:'Ecosystems & Hyperecosystems', description:'Nested musical ecologies bifurcate, overlap and create higher-order habitats of sound.', genre:'BIOCYBER_TRANCE', bpm:142, geometry:'QUANTUM_PARTICLES', divergence:.98, multiplicity:.76, coherence:.36, exursion:.86 },
       PHASEWEAVE: { title:'Phaseweave', description:'Asynchronous voices discover and lose transient synchronization.', genre:'POLYRHYTHMIC_TECHNO', bpm:132, geometry:'AURORA_WAVES', divergence:.5, multiplicity:.72, coherence:.7, exursion:.52 },
       AETHERFLUX: { title:'Aetherflux', description:'Slow spectral immensity is punctuated by rare high-information events.', genre:'COSMIC_AMBIENT', bpm:92, geometry:'AURORA_WAVES', divergence:.62, multiplicity:.3, coherence:.6, exursion:.72 },
