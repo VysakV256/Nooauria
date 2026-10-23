@@ -40,7 +40,7 @@ function habitat({ scoreOnly = false } = {}) {
     connect(node) { this.connections.push(node); }
     disconnect() { this.connections = []; }
     start(at = this.context.currentTime) { this.started = true; this.startAt = at; this.context.starts++; }
-    stop(at = this.context.currentTime) { this.stopAt = at; }
+    stop(at = this.context.currentTime) { if (this.scheduledStopAt === undefined) this.scheduledStopAt = at; this.stopAt = at; }
     setPeriodicWave(wave) { assert.equal(wave.context, this.context, 'A cached waveform must belong to the current context'); }
     getByteFrequencyData(data) { data.fill(24); }
     finish() { if (!this.ended) { this.ended = true; this.emit('ended'); if (this.onended) this.onended(); } }
@@ -56,6 +56,7 @@ function habitat({ scoreOnly = false } = {}) {
     createGain() { return new Node(this); }
     createBiquadFilter() { return new Node(this); }
     createStereoPanner() { return new Node(this); }
+    createWaveShaper() { return new Node(this); }
     createDelay() { return new Node(this); }
     createDynamicsCompressor() { return new Node(this); }
     createAnalyser() { const n = new Node(this); n.frequencyBinCount = 64; return n; }
@@ -119,7 +120,7 @@ function habitat({ scoreOnly = false } = {}) {
     this.scoreEvents = [];
   `, sandbox);
   if (scoreOnly) vm.runInContext(`
-    for (const name of ['playKick','playSnare','playHiHat','playGhostSnare','playBass','playMysticalSub','playSynthLead','playSurgeSpark','playProductionVoice','playCyberSample']) {
+    for (const name of ['playKick','playSnare','playHiHat','playGhostSnare','playBass','playMysticalSub','playSynthLead','playSurgeSpark','playProductionVoice','playCyberSample','playSoundSlab','playExursivePercussion']) {
       const record = (...args) => scoreEvents.push({ instrument:name, step:stepIndex, time:args[0], args:args.slice(1) });
       eval(name + ' = record');
     }
@@ -201,7 +202,7 @@ test('every biodynamic develops for 42 audio seconds without a short arrangement
     assert.equal(chapters.size, 6);
     const signatures = [];
     for (let start = 0; start + 32 < h.inspect().step; start += 32) {
-      const phrase = h.scoreEvents.filter(e => ['playSynthLead','playProductionVoice','playCyberSample'].includes(e.instrument) && e.step >= start && e.step < start + 32)
+      const phrase = h.scoreEvents.filter(e => ['playSynthLead','playProductionVoice','playCyberSample','playSoundSlab','playExursivePercussion'].includes(e.instrument) && e.step >= start && e.step < start + 32)
         .map(e => [e.step - start, ...e.args]);
       signatures.push(JSON.stringify(phrase));
     }
@@ -508,4 +509,81 @@ test('Polyattention uses only fluid crystal samples with stochastic, non-melodic
   assert.ok(samples.some(e => e.args[2] < -.5) && samples.some(e => e.args[2] > .5));
   assert.ok(samples.some((e,i) => i && e.step === samples[i-1].step && e.time > samples[i-1].time));
   assert.equal(h.errors.length, 0);
+});
+
+
+test('Exursive Flow produces broad stereo slabs and clears their voices on rest', async () => {
+  const score = habitat({ scoreOnly:true }); score.click('amplifier','EXURSIVE_FLOW'); await settle();
+  for (let i=0;i<64;i++) score.advance(15 / score.arrangement().bpm);
+  const slabs = score.scoreEvents.filter(e => e.instrument === 'playSoundSlab');
+  assert.ok(slabs.length >= 6);
+  assert.ok(slabs.some(e => e.args[1] > .8));
+  assert.ok(slabs.some(e => e.step % 16 === 10));
+  const h = habitat(); h.click('amplifier','EXURSIVE_FLOW'); await settle();
+  assert.ok(h.inspect().context.nodes.some(n => n.pan.value === -.65));
+  assert.ok(h.inspect().context.nodes.some(n => n.pan.value === .65));
+  h.element('awaken').click(); await settle();
+  assert.equal(h.inspect().voiceCount, 0);
+  assert.equal(h.errors.length, 0);
+});
+
+
+test('Exursive Flow escalates burst density and slab pressure across four bars', async () => {
+  const h = habitat({ scoreOnly:true }); h.click('amplifier','EXURSIVE_FLOW'); await settle();
+  for (let i=0;i<63;i++) h.advance(15 / h.arrangement().bpm);
+  const bursts = h.scoreEvents.filter(e => e.instrument === 'playProductionVoice' && e.args[2] === 'burst');
+  const counts = [0,1,2,3].map(bar => bursts.filter(e => Math.floor(e.step / 16) === bar).length);
+  assert.deepEqual(counts, [1,2,3,8]);
+  const slabs = h.scoreEvents.filter(e => e.instrument === 'playSoundSlab' && e.step % 16 === 0);
+  assert.ok(slabs[3].args[2] > slabs[0].args[2]);
+  assert.ok(slabs[3].args[1] > slabs[0].args[1]);
+  assert.ok(bursts.some((e,i) => i && e.step === bursts[i-1].step && e.time > bursts[i-1].time));
+});
+
+
+test('Exursive backbeat surges through static ratchets without generic cymbal layers', async () => {
+  const h = habitat({ scoreOnly:true }); h.click('amplifier','EXURSIVE_FLOW'); await settle();
+  for (let i=0;i<63;i++) h.advance(15 / h.arrangement().bpm);
+  const events = h.scoreEvents.filter(e => e.instrument === 'playExursivePercussion');
+  assert.ok(events.some(e => e.args[0] === 'surge'));
+  const counts = [0,1,2,3].map(bar => events.filter(e => e.args[0] === 'static' && Math.floor(e.step / 16) === bar).length);
+  assert.ok(counts.every((count,i) => !i || count > counts[i-1]));
+  for (let bar=0;bar<4;bar++) for (const anchor of [4,12]) {
+    assert.ok(events.some(e => e.step === bar * 16 + anchor && e.args[0] === 'body'));
+  }
+  assert.equal(h.scoreEvents.filter(e => ['playSnare','playHiHat','playGhostSnare'].includes(e.instrument)).length, 0);
+  assert.ok(events.some((e,i) => i && e.step === events[i-1].step && e.time > events[i-1].time));
+  assert.ok(events.some(e => e.args[2] < -.5) && events.some(e => e.args[2] > .5));
+});
+
+test('Exursive static sources are short, bounded and fully released on mode changes', async () => {
+  const h = habitat(); h.click('amplifier','EXURSIVE_FLOW'); await settle();
+  for (let i=0;i<80;i++) { h.advance(15 / h.arrangement().bpm); assert.ok(h.inspect().voiceCount <= 22); }
+  const sources = h.inspect().context.nodes.filter(n => n.source && n.buffer);
+  assert.ok(sources.length > 20);
+  assert.ok(sources.every(n => n.scheduledStopAt - n.startAt < .17));
+  h.click('amplifier','POLYATTENTION'); await settle();
+  for (const n of sources) assert.equal(n.connections.length, 0);
+  h.element('awaken').click(); await settle();
+  assert.equal(h.inspect().voiceCount, 0);
+  assert.equal(h.errors.length, 0);
+});
+
+
+test('Exursive keeps its motor pulse through breakdowns beneath overlapping saturated walls', async () => {
+  const h = habitat({ scoreOnly:true }); h.click('amplifier','EXURSIVE_FLOW'); await settle();
+  const tick = 15 / h.arrangement().bpm;
+  for (let i=0;i<400;i++) h.advance(tick);
+  const pulse = h.scoreEvents.filter(e => e.instrument === 'playProductionVoice' && e.args[2] === 'drive');
+  const kicks = h.scoreEvents.filter(e => e.instrument === 'playKick');
+  assert.equal(pulse.length, 201);
+  assert.equal(kicks.length, 101);
+  const slabs = h.scoreEvents.filter(e => e.instrument === 'playSoundSlab' && e.step % 16 === 0);
+  assert.ok(slabs.every(e => e.args[1] > 16 * tick));
+  const real = habitat(); real.click('amplifier','EXURSIVE_FLOW'); await settle();
+  assert.ok(real.inspect().context.nodes.some(n => n.curve?.length === 1024));
+  for (let i=0;i<150;i++) { real.advance(tick); assert.ok(real.inspect().voiceCount <= 22); }
+  real.element('awaken').click(); await settle();
+  assert.equal(real.inspect().voiceCount, 0);
+  assert.equal(real.errors.length, 0);
 });

@@ -736,12 +736,67 @@
       source.stop(time + .06);
     }
 
+    const exursivePercussionCache = new Map();
+    function playExursivePercussion(time, texture = 'static', level = .6, pan = 0, pressure = 0) {
+      const duration = texture === 'body' ? .14 : texture === 'surge' ? .16 : .055;
+      const voice = reserveVoice(Math.max(0, time - audioCtx.currentTime) + duration + .04);
+      if (!voice) return;
+      const key = `${audioCtx.sampleRate}:${texture}`;
+      let buffer = exursivePercussionCache.get(key);
+      if (!buffer) {
+        buffer = audioCtx.createBuffer(1, Math.ceil(audioCtx.sampleRate * duration), audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        let held = 0, phase = 0;
+        const hold = texture === 'body' ? 3 : texture === 'surge' ? 7 : 11;
+        for (let i=0;i<data.length;i++) {
+          const t = i / audioCtx.sampleRate, u = t / duration;
+          if (i % hold === 0) held = Math.round((Math.random() * 2 - 1) * 9) / 9;
+          phase += Math.PI * 2 * (180 - u * 90) / audioCtx.sampleRate;
+          const gate = texture === 'static' ? .2 + .8 * Math.pow(Math.sin(u * Math.PI * 4), 2) : 1;
+          data[i] = (held * .72 + (texture === 'body' ? Math.sin(phase) * .28 : 0)) * gate;
+        }
+        exursivePercussionCache.set(key, buffer);
+      }
+      const source = audioCtx.createBufferSource(); source.buffer = buffer;
+      const filter = audioCtx.createBiquadFilter(); filter.type = 'bandpass';
+      filter.Q.value = texture === 'body' ? .8 : 1.6;
+      const cutoff = (texture === 'body' ? 1000 : 1900) + pressure * 550;
+      filter.frequency.setValueAtTime(texture === 'surge' ? 650 : cutoff, time);
+      filter.frequency.exponentialRampToValueAtTime(texture === 'surge' ? 3400 + pressure * 700 : cutoff * .6, time + duration);
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(.0001, time);
+      gain.gain.linearRampToValueAtTime((texture === 'body' ? .23 : .15) * level, time + (texture === 'surge' ? .065 : .002));
+      gain.gain.exponentialRampToValueAtTime(.0001, time + duration);
+      const stereo = audioCtx.createStereoPanner(); stereo.pan.value = pan;
+      trackVoice(voice, [source], [filter, gain, stereo]);
+      source.connect(filter); filter.connect(gain); gain.connect(stereo); stereo.connect(masterGain);
+      source.start(time); source.stop(time + duration + .005);
+    }
+
+    function playExursiveBackbeat(step, time, sixteenth, bar, drive, fade) {
+      const pressure = bar % 4;
+      const level = drive * fade;
+      // Backbeat anchors remain legible; surrounding fragments migrate with each wave.
+      if (step === 4 || step === 12) playExursivePercussion(time, 'body', (1 + pressure * .12) * level, 0, pressure);
+      const shifted = [7,9,11,6][(bar + Math.floor(bar / 4)) % 4];
+      if (step === shifted) playExursivePercussion(time + sixteenth * .16, 'body', .5 * level, -.25, pressure);
+      if ([2,6,10,14].includes(step)) playExursivePercussion(time, 'static', (.4 + pressure * .1) * level, step % 8 ? .45 : -.45, pressure);
+      if (step === 3 || (pressure > 1 && step === 11)) playExursivePercussion(time, 'surge', (.48 + pressure * .14) * level, -.35, pressure);
+      const start = 14 - pressure * 2;
+      const stride = pressure === 3 ? 1 : 2;
+      if (step >= start && (step - start) % stride === 0) {
+        const rise = (step - start) / Math.max(1, 15 - start);
+        playExursivePercussion(time, 'static', (.45 + rise * .65) * level, step % 2 ? -.6 : .6, pressure);
+        if (pressure === 3 && step % 2) playExursivePercussion(time + sixteenth * .5, 'static', (.4 + rise * .4) * level, .3, pressure);
+      }
+    }
+
     // A shared production vocabulary gives each alliance roles rather than three full mixes.
     const productionStyles = {
       NOETIC_SURGE: { groove:'surge', label:'Atlantean liquid-crystal electronica', tone:'glass', swing:0.02, density:0.85 },
       NOETIC_HYPERFLUX: { groove:'dnb', label:'Neuro drum & bass', tone:'glass', swing:0.055, density:0.7 },
       POLYATTENTION: { groove:'footwork', label:'Atlantean crystal streams / fluid cyberutopia', tone:'cyber', swing:0.11, density:0.7 },
-      EXURSIVE_FLOW: { groove:'dub', label:'Dub techno', tone:'pluck', swing:0.06, density:0.6 },
+      EXURSIVE_FLOW: { groove:'dub', label:'Hypnotic noise-electronics / surging synth walls', tone:'drive', swing:0, density:0.6 },
       HYPERFOCUS_LENS: { groove:'micro', label:'Microhouse', tone:'pluck', swing:0.1, density:0.4 },
       DIVERGENCE_ENGINE: { groove:'wonky', label:'Wonky / glitch-hop', tone:'fm', swing:0.19, density:0.8 },
       PHASEWEAVE: { groove:'garage', label:'UK garage / 2-step', tone:'glass', swing:0.18, density:0.6 },
@@ -755,7 +810,7 @@
     };
 
     function playProductionVoice(time, hz, duration, tone = 'pluck', level = .1, pan = 0) {
-      const liquid = state.spectrumMode === 'LIQUID' && tone !== 'sub' && tone !== 'acid';
+      const liquid = state.spectrumMode === 'LIQUID' && tone !== 'sub' && tone !== 'acid' && tone !== 'burst' && tone !== 'drive';
       if (liquid) duration *= 1.4;
       const wait = Math.max(0, time - audioCtx.currentTime);
       const voice = reserveVoice(wait + duration + .05);
@@ -781,8 +836,8 @@
       if (warm) colorGain.connect(filter);
       else colorGain.connect(carrier.frequency);
       filter.type = cyber ? 'bandpass' : 'lowpass';
-      filter.frequency.setValueAtTime(cyber ? Math.min(7000, hz * 5) : bass ? 550 : tone === 'acid' ? 2800 : warm ? 2200 : 6800, time);
-      filter.frequency.exponentialRampToValueAtTime(cyber ? Math.max(300, hz * 1.2) : bass ? 140 : warm ? 650 : 1200, time + duration);
+      filter.frequency.setValueAtTime(tone === 'drive' ? 1800 : cyber ? Math.min(7000, hz * 5) : bass ? 550 : tone === 'acid' ? 2800 : warm ? 2200 : 6800, time);
+      filter.frequency.exponentialRampToValueAtTime(tone === 'drive' ? 330 : cyber ? Math.max(300, hz * 1.2) : bass ? 140 : warm ? 650 : 1200, time + duration);
       filter.Q.value = cyber ? 4.5 : bass ? .7 : tone === 'acid' ? 5 : 1.1;
       envelope.gain.setValueAtTime(.0001, time);
       envelope.gain.linearRampToValueAtTime(level, time + (liquid ? .014 : warm ? .018 : .004));
@@ -793,6 +848,40 @@
       if (['NOETIC_SURGE','POLYATTENTION'].includes(state.amplifierMode) && !bass && tone !== 'acid') stereo.connect(crystalEcho);
       carrier.start(time); color.start(time);
       carrier.stop(time + duration + .01); color.stop(time + duration + .01);
+    }
+
+    const slabSaturationCurve = Float32Array.from({ length:1024 }, (_, i) => Math.tanh((i / 1023 * 2 - 1) * 2.6) / Math.tanh(2.6));
+    function playSoundSlab(time, root, duration, power = 1) {
+      const voice = reserveVoice(Math.max(0, time - audioCtx.currentTime) + duration + .08);
+      if (!voice) return;
+      const sources = [], nodes = [];
+      // Detuned stereo stacks open slowly into a broad crest, then recede.
+      for (const side of [-1,1]) {
+        const filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass'; filter.Q.value = 1.2;
+        filter.frequency.setValueAtTime(240, time);
+        filter.frequency.exponentialRampToValueAtTime(5800, time + duration * .42);
+        filter.frequency.exponentialRampToValueAtTime(480, time + duration);
+        const grit = audioCtx.createWaveShaper(); grit.curve = slabSaturationCurve; grit.oversample = '2x';
+        const lowCut = audioCtx.createBiquadFilter(); lowCut.type = 'highpass'; lowCut.frequency.value = 110;
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(.0001, time);
+        gain.gain.linearRampToValueAtTime(.10 * power, time + Math.min(.055, duration * .16));
+        gain.gain.linearRampToValueAtTime(.125 * power, time + duration * .42);
+        gain.gain.setValueAtTime(.09 * power, time + duration * .7);
+        gain.gain.exponentialRampToValueAtTime(.0001, time + duration);
+        const stereo = audioCtx.createStereoPanner(); stereo.pan.value = side * .65;
+        filter.connect(grit); grit.connect(lowCut); lowCut.connect(gain); gain.connect(stereo); stereo.connect(productionBus);
+        nodes.push(filter, grit, lowCut, gain, stereo);
+        for (const ratio of [1,1.5,2]) {
+          const osc = audioCtx.createOscillator(); osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(root * ratio, time);
+          osc.detune.setValueAtTime(side * (7 + ratio * 2), time);
+          osc.detune.linearRampToValueAtTime(side * (3 + ratio), time + duration);
+          osc.connect(filter); sources.push(osc);
+        }
+      }
+      trackVoice(voice, sources, nodes);
+      for (const source of sources) { source.start(time); source.stop(time + duration + .01); }
     }
 
     const cyberSampleCache = new Map();
@@ -887,7 +976,7 @@
       }
       const breakdown = progress > .46 && progress < .57;
       const outro = progress > .92;
-      const drive = breakdown ? .35 : outro ? .65 : 1;
+      const drive = breakdown ? (section.foundation === 'EXURSIVE_FLOW' ? .82 : .35) : outro ? .65 : 1;
       const fade = generatedTrack ? Math.min(1, Math.max(.01, (generatedTrack.duration - elapsed) / 2)) : 1;
       currentArrangement.bassLevel = drive * (style.groove === 'surge' ? .48 : .9) * fade;
       currentArrangement.hatLevel = (step % 4 === 2 ? .9 : .48) * drive * fade;
@@ -922,14 +1011,15 @@
           if (step === 15) playProductionVoice(time + sixteenth * .66, 880, sixteenth, 'glass', .12 * fade, .5);
         }
       }
-      const kick = groove.kick.includes(step) && (!breakdown || step === 0);
+      const kick = groove.kick.includes(step) && (section.foundation === 'EXURSIVE_FLOW' || !breakdown || step === 0);
       if (kick) {
         playKick(now);
         productionBus.gain.cancelScheduledValues(now);
-        productionBus.gain.setValueAtTime(.26, now);
-        productionBus.gain.linearRampToValueAtTime(.82, now + Math.min(.18, sixteenth * 1.8));
+        productionBus.gain.setValueAtTime(section.foundation === 'EXURSIVE_FLOW' ? .55 : .26, now);
+        productionBus.gain.linearRampToValueAtTime(section.foundation === 'EXURSIVE_FLOW' ? .9 : .82, now + Math.min(.18, sixteenth * 1.8));
       }
-      if (groove.snare.includes(step)) {
+      if (section.foundation === 'EXURSIVE_FLOW') playExursiveBackbeat(step, time, sixteenth, bar, drive, fade);
+      if (section.foundation !== 'EXURSIVE_FLOW' && groove.snare.includes(step)) {
         playSnare(time, drive * fade * (style.groove === 'surge' ? .55 : 1));
         // Two short filtered noise taps turn the tonal snare into a textured clap.
         if (section.foundation === 'POLYATTENTION') {
@@ -941,21 +1031,21 @@
       }
       if (section.foundation === 'POLYATTENTION' && !breakdown && groove.hats.includes(step)) {
         playProductionVoice(time, 660 * Math.pow(2, ((step + bar * 3) % 7) / 12), sixteenth * .8, 'cyber', .13 * fade, step % 3 ? -.5 : .5);
-      } else if (style.groove !== 'surge' && section.foundation !== 'POLYATTENTION' && !breakdown && groove.hats.includes(step)) playHiHat(time, step === 6 || step === 14);
-      if (section.foundation !== 'POLYATTENTION' && bar % 4 === 3 && step >= 14 && chance(step) < variation) {
+      } else if (style.groove !== 'surge' && section.foundation !== 'EXURSIVE_FLOW' && section.foundation !== 'POLYATTENTION' && !breakdown && groove.hats.includes(step)) playHiHat(time, step === 6 || step === 14);
+      if (section.foundation !== 'EXURSIVE_FLOW' && section.foundation !== 'POLYATTENTION' && bar % 4 === 3 && step >= 14 && chance(step) < variation) {
         playGhostSnare(time, .32 * drive * fade);
         if (['braindance','dnb'].includes(style.groove)) playGhostSnare(time + sixteenth * .5, .2 * fade);
       }
       // One mono bass lane and one shared minor-pentatonic harmony across all modes.
       const semitones = style.groove === 'surge' ? [0,2,4,7,9] : [0,3,5,7,10];
       const score = arrangementScores[section.foundation];
-      const root = 65.406 * Math.pow(2, score.harmony[Math.floor(elapsed / 7) % 6] / 12);
+      const root = 65.406 * Math.pow(2, score.harmony[Math.floor(elapsed / (section.foundation === 'EXURSIVE_FLOW' ? 14 : 7)) % 6] / 12);
       const note = degree => root * Math.pow(2, (semitones[((degree % 5) + 5) % 5] + Math.floor(degree / 5) * 12) / 12);
       const bassSteps = groove.bass;
-      if (!breakdown && bassSteps.includes(step)) playProductionVoice(time, root * (step === 14 && bar % 2 ? 1.5 : 1), sixteenth * (style.groove === 'acid' ? .72 : style.groove === 'ambient' ? 7 : 1.45), style.groove === 'acid' ? 'acid' : 'sub', (style.groove === 'surge' ? .11 : .2) * drive * fade);
+      if (section.foundation !== 'EXURSIVE_FLOW' && !breakdown && bassSteps.includes(step)) playProductionVoice(time, root * (step === 14 && bar % 2 ? 1.5 : 1), sixteenth * (style.groove === 'acid' ? .72 : style.groove === 'ambient' ? 7 : 1.45), style.groove === 'acid' ? 'acid' : 'sub', (style.groove === 'surge' ? .11 : .2) * drive * fade);
       const motif = [0,2,4,1,3,2,0,4];
       const slot = Math.floor(step / 2);
-      if (groove.lead.includes(step) && chance(slot) < style.density + .15 && (!outro || step % 4 === 0)) {
+      if (section.foundation !== 'EXURSIVE_FLOW' && groove.lead.includes(step) && chance(slot) < style.density + .15 && (!outro || step % 4 === 0)) {
         const degree = motif[(slot + Math.floor(bar / 2) + seed) % motif.length];
         playProductionVoice(time, note(degree) * 4, sixteenth * (breakdown ? 3.5 : 1.65), style.tone, .095 * fade, Math.sin(slot * 1.7) * .38);
       }
@@ -978,9 +1068,26 @@
           sixteenth * 2.8, 'glass', (.30 + energy * .27) * fade, step % 4 === 1 ? -.6 : .6);
       }
       if (section.foundation === 'POLYATTENTION') playPolyEmergence(time, note, sixteenth, fade, seed, elapsed);
+      if (section.foundation === 'EXURSIVE_FLOW') {
+        // A four-bar pressure ramp: each wave grows in body, then releases into the next.
+        const pressure = bar % 4;
+        const growth = Math.min(1, elapsed / 28);
+        if (step % 2 === 0) playProductionVoice(now, root * [1,1,2,1,1,1,1.5,1][step / 2], sixteenth * 1.15, 'drive', .12 * drive * fade, 0);
+        if (step === 0) playSoundSlab(time, root * (bar % 3 === 2 ? 1.5 : 2), sixteenth * (18 + pressure), (.85 + pressure * .12 + growth * .35) * drive * fade);
+        if (step === 10 && bar % 2) playSoundSlab(time, root * 3, sixteenth * 10, (.55 + pressure * .09 + growth * .25) * drive * fade);
+        const burstStart = 14 - pressure * 2;
+        if (step >= burstStart && step % 2 === 0) {
+          const crest = (step - burstStart) / 2;
+          const level = (.11 + pressure * .025 + crest * .025) * drive * fade;
+          playProductionVoice(time, note((bar + crest) % 5) * 2, sixteenth * .8, 'burst', level, crest % 2 ? -.5 : .5);
+          if (pressure === 3) playProductionVoice(time + sixteenth * .5, note((bar + crest + 2) % 5) * 2,
+            sixteenth * .55, 'burst', level * .7, crest % 2 ? .5 : -.5);
+        }
+      }
       // Supporting modes supply timbre and counterpoint, never extra kick/sub lanes.
       section.layers.forEach((mode, index) => {
         const layer = productionStyles[mode];
+        if (mode === 'EXURSIVE_FLOW' && step === 0) playSoundSlab(time, root * 2, sixteenth * 5, .42 * fade);
         if (mode === 'POLYATTENTION') {
           playPolySampleBreaks(step, time, sixteenth, seed, elapsed, fade * .4);
           return;
@@ -991,7 +1098,7 @@
           playProductionVoice(time, note(degree) * (index ? 8 : 2), sixteenth * (index ? 2 : 4), layer.tone, (index ? .035 : .05) * fade, index ? .62 : -.55);
         }
       });
-      if (step === 0 || (style.tone === 'warm' && step === 8)) {
+      if (section.foundation !== 'EXURSIVE_FLOW' && (step === 0 || (style.tone === 'warm' && step === 8))) {
         for (const degree of [0,2,4]) playProductionVoice(time, note(degree) * 2, sixteenth * 3.5, 'warm', .026 * fade, (degree - 2) * .22);
       }
     }
@@ -1726,7 +1833,7 @@
       PRISM_BREAKS: { title:'Prism Breaks', description:'Swung broken beats, glassy FM splinters and restrained micro-edits.', genre:'MELODIC_TECHNO', bpm:138, geometry:'NEON_GRID', divergence:.65, multiplicity:.6, coherence:.75, exursion:.6 },
       NOETIC_SURGE: { title:'Noetic Surge', description:'An Atlantean blue space-tech stream: liquid-crystal arpeggios, luminous FM tides and echoing celestial bells open into freedom, wonder and cosmic mystery.', genre:'ELECTRO_TRANCE', bpm:144, geometry:'AURORA_WAVES', primaryColor:'#48C8FF', secondaryColor:'#146BFF', accentColor:'#C1F6FF', divergence:.52, multiplicity:.62, coherence:.68, exursion:.48 },
       POLYATTENTION: { title:'Polyattention', description:'Only chopped cybernetic samples: soft liquid-FM chimes, luminous crystal fragments and flowing electronic ripples drift through a stochastic Atlantean soundstream. No melody or chord progression. No drums, percussion or continuous hum.', genre:'GENERATIVE_IDM', lifewayMode:null, filterCutoff:.85, resonance:.12, binauralEnabled:false, solfeggioEnabled:false, isochronicEnabled:false, harmonicVol:0, bpm:136, geometry:'QUANTUM_PARTICLES', divergence:.66, multiplicity:.94, coherence:.34, exursion:.7 },
-      EXURSIVE_FLOW: { title:'Exursive Flow', description:'Patterns retain memory while continually opening non-returning branches.', genre:'EXURSIVE_TECHNO', bpm:128, geometry:'COSMIC_TUNNEL', divergence:.82, multiplicity:.58, coherence:.43, exursion:.98 },
+      EXURSIVE_FLOW: { title:'Exursive Flow', description:'An unwavering electronic pulse drives overlapping distorted synth walls. Slow-building harmonic pressure, static backbeats and escalating stereo bursts gather into a dense, hypnotic surge.', genre:'EXURSIVE_TECHNO', bpm:128, geometry:'COSMIC_TUNNEL', divergence:.82, multiplicity:.58, coherence:.43, exursion:.98 },
       HYPERFOCUS_LENS: { title:'Hyperfocus Lens', description:'A persistent sonic attractor remains coherent through surrounding change.', genre:'MINIMAL_PROGRESSIVE', bpm:120, geometry:'SACRED_MANDALA', divergence:.28, multiplicity:.34, coherence:.96, exursion:.25 },
       DIVERGENCE_ENGINE: { title:'Ecosystems & Hyperecosystems', description:'Nested musical ecologies bifurcate, overlap and create higher-order habitats of sound.', genre:'BIOCYBER_TRANCE', bpm:142, geometry:'QUANTUM_PARTICLES', divergence:.98, multiplicity:.76, coherence:.36, exursion:.86 },
       PHASEWEAVE: { title:'Phaseweave', description:'Asynchronous voices discover and lose transient synchronization.', genre:'POLYRHYTHMIC_TECHNO', bpm:132, geometry:'AURORA_WAVES', divergence:.5, multiplicity:.72, coherence:.7, exursion:.52 },
