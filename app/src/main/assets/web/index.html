@@ -119,17 +119,18 @@
   <button id="awaken" type="button" aria-label="Emerge | Rest" aria-pressed="false" aria-describedby="pulse-readout" title="Emerge: start the selected biodynamic"><span class="emerge-label">EMERGE</span><span class="playback-divider" aria-hidden="true">|</span><span class="rest-label">REST</span></button>
   <button id="maximize-shader" type="button" aria-label="Maximize shader">MAXIMIZE SHADER</button>
   <section id="control-dock" aria-label="Nooauria habitat controls">
-    <div class="dock-head"><span class="eyebrow">Choose an evolutionary state</span><span class="pulse" id="pulse-readout">128 BPM · dormant</span></div>
+    <div class="dock-head"><span class="eyebrow">Choose a biocyberdynamic</span><span class="pulse" id="pulse-readout">128 BPM · dormant</span></div>
     <div class="amplifier-meta">
       <div><strong id="amplifier-title">Noetic Hyperflux</strong><p id="amplifier-description">A phase-changing ecology where minor organisms become organizing forces.</p></div>
       <span class="generation" id="generation-readout">generation 000</span>
     </div>
     <div class="arrangement-status"><span id="arrangement-readout" role="timer">EMERGENCE · 00 / 42s</span><progress id="arrangement-progress" max="42" value="0" aria-label="42-second arrangement progress"></progress></div>
-    <div class="amplifier-rail" aria-label="Cognitive force amplifiers">
+    <div class="amplifier-rail" aria-label="Biocyberdynamics">
       <button type="button" data-amplifier="NOETIC_SURGE">NOETIC SURGE</button>
       <button type="button" data-amplifier="POLYATTENTION">POLYATTENTION</button>
       <button type="button" data-amplifier="EXURSIVE_FLOW">EXURSIVE FLOW</button>
       <button type="button" data-amplifier="HYPERFOCUS_LENS">HYPERFOCUS LENS</button>
+      <button type="button" data-amplifier="RTADAOLUAN">RTADAOLUAN</button>
       <button type="button" data-amplifier="DIVERGENCE_ENGINE">ECOSYSTEMS &amp; HYPERECOSYSTEMS</button>
       <button type="button" data-amplifier="PHASEWEAVE">PHASEWEAVE</button>
       <button type="button" data-amplifier="AETHERFLUX">AETHERFLUX</button>
@@ -143,7 +144,7 @@
     </div>
     <fieldset class="focus-lens" id="focus-lens" hidden>
       <legend>BINARY × TRINARY RESONANCE LENS</legend>
-      <p>Two streams of clean electronic sine-tone points alternate against three Atlantean spectral voices in a 12-step cycle, drifting through tension and alignment. The background matches Exursive Flow. This is a musical experiment in attention.</p>
+      <p>Two streams of bright, consonant electronic sine-tone points alternate against three Atlantean spectral voices in a closely woven 6-step cycle, drifting through tension and alignment. The background matches Exursive Flow. This is a musical experiment in attention.</p>
       <div class="lens-controls">
         <label>Binary point tones <input id="lens-binary" type="range" min="0" max="100" value="75"></label>
         <label>Trinary harmony <input id="lens-trinary" type="range" min="0" max="100" value="80"></label>
@@ -154,7 +155,7 @@
     <details class="track-composer">
       <summary>STOCHASTIC TRACK COMPOSER</summary>
       <p>Combine hyperfluxes into a new journey. Produced EDM / IDM hyperdynamics: a focused low end, swung percussion, recurring hooks and evolving stereo textures. Generate a new combination every 3 seconds, or set your own interval. Emerge / Rest pauses and resumes.</p>
-      <div class="track-pool" aria-label="Hyperfluxes available for generation"><label><input type="checkbox" data-track-mode="NOETIC_SURGE" checked>Noetic Surge</label><label><input type="checkbox" data-track-mode="POLYATTENTION" checked>Polyattention</label><label><input type="checkbox" data-track-mode="EXURSIVE_FLOW" checked>Exursive Flow</label><label><input type="checkbox" data-track-mode="HYPERFOCUS_LENS" checked>Hyperfocus Lens</label><label><input type="checkbox" data-track-mode="DIVERGENCE_ENGINE" checked>Divergence Engine</label><label><input type="checkbox" data-track-mode="PHASEWEAVE" checked>Phaseweave</label><label><input type="checkbox" data-track-mode="AETHERFLUX" checked>Aetherflux</label><label><input type="checkbox" data-track-mode="METAMORPHIC_PULSE" checked>Metamorphic Pulse</label><label><input type="checkbox" data-track-mode="VIRIDION" checked>Viridion</label><label><input type="checkbox" data-track-mode="HYPERASTRA" checked>Hyperastra</label><label><input type="checkbox" data-track-mode="NOETIC_HYPERFLUX" checked>Noetic Hyperflux</label><label><input type="checkbox" data-track-mode="PRISM_BREAKS" checked>Prism Breaks</label><label><input type="checkbox" data-track-mode="VELVET_CIRCUIT" checked>Velvet Circuit</label><label><input type="checkbox" data-track-mode="AXIOM_BLOOM" checked>Axiom Bloom</label></div>
+      <div class="track-pool" aria-label="Hyperfluxes available for generation"><label><input type="checkbox" data-track-mode="NOETIC_SURGE" checked>Noetic Surge</label><label><input type="checkbox" data-track-mode="POLYATTENTION" checked>Polyattention</label><label><input type="checkbox" data-track-mode="EXURSIVE_FLOW" checked>Exursive Flow</label><label><input type="checkbox" data-track-mode="HYPERFOCUS_LENS" checked>Hyperfocus Lens</label><label><input type="checkbox" data-track-mode="RTADAOLUAN" checked>Rtadaoluan</label><label><input type="checkbox" data-track-mode="DIVERGENCE_ENGINE" checked>Divergence Engine</label><label><input type="checkbox" data-track-mode="PHASEWEAVE" checked>Phaseweave</label><label><input type="checkbox" data-track-mode="AETHERFLUX" checked>Aetherflux</label><label><input type="checkbox" data-track-mode="METAMORPHIC_PULSE" checked>Metamorphic Pulse</label><label><input type="checkbox" data-track-mode="VIRIDION" checked>Viridion</label><label><input type="checkbox" data-track-mode="HYPERASTRA" checked>Hyperastra</label><label><input type="checkbox" data-track-mode="NOETIC_HYPERFLUX" checked>Noetic Hyperflux</label><label><input type="checkbox" data-track-mode="PRISM_BREAKS" checked>Prism Breaks</label><label><input type="checkbox" data-track-mode="VELVET_CIRCUIT" checked>Velvet Circuit</label><label><input type="checkbox" data-track-mode="AXIOM_BLOOM" checked>Axiom Bloom</label></div>
       <div class="track-options">
         <label>Length <select id="track-length"><option value="126">2:06</option><option value="252" selected>4:12</option><option value="378">6:18</option></select></label>
         <label>Interval (seconds) <input id="track-interval" type="number" min="0.5" max="42" step="0.5" value="3"></label>
@@ -366,6 +367,8 @@
       biodynamicShader: true
     };
 
+    function isLensMode(mode) { return mode === 'HYPERFOCUS_LENS' || mode === 'RTADAOLUAN'; }
+
     let stepIndex = 0;
     let sequencerTimer = null;
     let playbackEpoch = 0;
@@ -509,7 +512,7 @@
 
     function setupCognitiveSynth() {
       if (!audioCtx) return;
-      const atmosphereLevel = ['EXURSIVE_FLOW','HYPERFOCUS_LENS'].includes(state.amplifierMode) ? .2 : 1;
+      const atmosphereLevel = ['EXURSIVE_FLOW','HYPERFOCUS_LENS','RTADAOLUAN'].includes(state.amplifierMode) ? .2 : 1;
 
       binauralGain = audioCtx.createGain();
       binauralGain.gain.value = state.binauralEnabled ? state.binauralVol * 0.2 * atmosphereLevel : 0.0;
@@ -614,6 +617,8 @@
       HYPERASTRA:        { harmony:[0,7,3,-2,5,0], motif:[0,7,2,9,4,11,5,10,3,8,1,6], stride:4, register:2 },
       NOETIC_HYPERFLUX:  { harmony:[0,3,6,-2,7,1], motif:[0,2,6,1,7,3,9,4,11,5,8,10], stride:2, register:1.5 }
     };
+
+    arrangementScores.RTADAOLUAN = arrangementScores.HYPERFOCUS_LENS;
 
     function arrangementAt(seconds, mode = state.amplifierMode) {
       const position = Math.max(0, seconds) % ARRANGEMENT_SECONDS;
@@ -829,6 +834,8 @@
       AXIOM_BLOOM: { groove:'electro', label:'Melodic electro', tone:'glass', swing:0.06, density:0.65 }
     };
 
+    productionStyles.RTADAOLUAN = { ...productionStyles.HYPERFOCUS_LENS };
+
     function playProductionVoice(time, hz, duration, tone = 'pluck', level = .1, pan = 0) {
       const liquid = state.spectrumMode === 'LIQUID' && tone !== 'sub' && tone !== 'acid' && tone !== 'burst' && tone !== 'drive';
       if (liquid) duration *= 1.4;
@@ -865,7 +872,7 @@
       stereo.pan.value = bass ? 0 : pan;
       if (liquid) stereo.pan.linearRampToValueAtTime(Math.max(-.8, Math.min(.8, pan + Math.sin(time * .7) * .3)), time + duration);
       carrier.connect(filter); filter.connect(envelope); envelope.connect(stereo); stereo.connect(productionBus);
-      if (['NOETIC_SURGE','POLYATTENTION','HYPERFOCUS_LENS'].includes(state.amplifierMode) && !bass && tone !== 'acid') stereo.connect(crystalEcho);
+      if (['NOETIC_SURGE','POLYATTENTION','HYPERFOCUS_LENS','RTADAOLUAN'].includes(state.amplifierMode) && !bass && tone !== 'acid') stereo.connect(crystalEcho);
       carrier.start(time); color.start(time);
       carrier.stop(time + duration + .01); color.stop(time + duration + .01);
     }
@@ -1002,15 +1009,16 @@
       if (!voice) return;
       const source = audioCtx.createOscillator(); source.type = 'sine';
       // One steady pure frequency per packet: no noise, FM, bit crushing or pitch stretch.
-      const choice = Math.floor(Math.random() * 4);
-      source.frequency.setValueAtTime(bright ? 2700 + choice * 180 : 1100 + choice * 90, time);
+      const choice = Math.floor(Math.random() * 3);
+      const dawnRoot = 1046.496;
+      source.frequency.setValueAtTime(dawnRoot * (bright ? [2.25,2.5,3] : [1,1.125,1.25])[choice], time);
       const gain = audioCtx.createGain();
       gain.gain.setValueAtTime(0, time);
       for (let point=0;point<points;point++) {
         const onset = time + point * spacing;
-        const peak = level * (bright ? .94 : .9) / (1 + point * .12);
+        const peak = level * (bright ? .94 : .9) * (.78 + point * .1);
         gain.gain.setValueAtTime(0, onset);
-        gain.gain.linearRampToValueAtTime(peak, onset + .004);
+        gain.gain.linearRampToValueAtTime(peak, onset + .006);
         gain.gain.setValueAtTime(peak, onset + pointLength - .007);
         gain.gain.linearRampToValueAtTime(0, onset + pointLength);
       }
@@ -1027,27 +1035,27 @@
 
     function playHyperfocusLens(time, sixteenth, elapsed, fade, foreground = true) {
       const phase = lensPhaseAt(elapsed);
-      const cell = stepIndex % 12;
+      const cell = stepIndex % 6;
       const anchor = 130.812;
       if (foreground && stepIndex % 2 === 0) {
         const root = 65.406 * Math.pow(2, arrangementScores.EXURSIVE_FLOW.harmony[Math.floor(elapsed / 14) % 6] / 12);
         playProductionVoice(time, root * [1,1,2,1,1,1,1.5,1][(stepIndex % 16) / 2], sixteenth * 1.15, 'drive', .018 * fade, 0);
       }
-      // Two distinct electric bursts against three spectral chime entries per twelve ticks.
-      if (cell % 6 === 0) {
-        const index = cell / 6;
+      // Two hopeful point-tone accents braid with three spectral chime entries every six ticks.
+      if (cell % 3 === 0) {
+        const index = cell / 3;
         playLensVoice(time, anchor * [1,2][index], .13,
-          1.0 * state.lensBinary * fade, index ? .3 : -.3, phase.tension, 'binary', index);
+          1.0 * state.lensBinary * fade, index ? .2 : -.2, phase.tension, 'binary', index);
       }
-      const code = ((Math.floor(stepIndex / 12) + 1) * 0x45d9f3b) >>> 0;
-      if (cell % 6 !== 0 && ((code >>> cell) & 1)) {
+      const code = ((Math.floor(stepIndex / 6) + 1) * 0x45d9f3b) >>> 0;
+      if (cell % 3 !== 0 && ((code >>> cell) & 1)) {
         playLensVoice(time, 0, .09, .36 * state.lensBinary * fade,
-          cell % 2 ? -.4 : .4, phase.tension, 'binary-detail', cell % 2);
+          cell % 2 ? -.25 : .25, phase.tension, 'binary-detail', cell % 2);
       }
-      if (cell % 4 === 0) {
-        const index = cell / 4;
-        playLensVoice(time + sixteenth * phase.tension * .18, anchor * [16,24,32][index], sixteenth * 2.8,
-          .34 * state.lensTrinary * fade * (1 - phase.tension * .18), [-.55,0,.55][index], phase.tension, 'trinary');
+      if (cell % 2 === 0) {
+        const index = cell / 2;
+        playLensVoice(time + sixteenth * phase.tension * .08, anchor * [16,24,32][index], sixteenth * 2.8,
+          .34 * state.lensTrinary * fade * (1 - phase.tension * .18), [-.3,0,.3][index], phase.tension, 'trinary');
       }
       if (foreground) {
         document.getElementById('lens-phase').textContent = `2 : 3 · ${phase.label} · ${Math.round((1-phase.tension) * 100)}% alignment`;
@@ -1069,7 +1077,7 @@
       };
       const elapsed = arrangementTime();
       const progress = generatedTrack ? elapsed / generatedTrack.duration : (elapsed % 42) / 42;
-      if (section.foundation === 'HYPERFOCUS_LENS') {
+      if (isLensMode(section.foundation)) {
         const lensFade = generatedTrack ? Math.min(1, Math.max(.01, (generatedTrack.duration - elapsed) / 2)) : 1;
         playHyperfocusLens(now, sixteenth, elapsed, lensFade);
         return;
@@ -1192,7 +1200,7 @@
       // Supporting modes supply timbre and counterpoint, never extra kick/sub lanes.
       section.layers.forEach((mode, index) => {
         const layer = productionStyles[mode];
-        if (mode === 'HYPERFOCUS_LENS') {
+        if (isLensMode(mode)) {
           playHyperfocusLens(time, sixteenth, elapsed, fade * .4, false);
           return;
         }
@@ -1245,11 +1253,11 @@
       const basses = bassSteps[mode] || bassSteps.NOETIC_HYPERFLUX;
       if (kicks.includes(step)) playKick(now);
       if (step === 4 || step === 12) playSnare(now);
-      if ([2,7,10,15].includes(step)) playGhostSnare(now, mode === 'HYPERFOCUS_LENS' ? .28 : .48);
+      if ([2,7,10,15].includes(step)) playGhostSnare(now, isLensMode(mode) ? .28 : .48);
       playHiHat(now, step === 7 || step === 15);
       if (step % 2 === 1 && ['POLYATTENTION','METAMORPHIC_PULSE'].includes(mode)) playHiHat(now, false);
       if (state.activeSection !== 'INTRO' && basses.includes(step)) {
-        const motion = mode === 'HYPERFOCUS_LENS' ? 0 : (step + generation * (mode === 'DIVERGENCE_ENGINE' ? 3 : 1)) % Math.min(7, scale.length);
+        const motion = isLensMode(mode) ? 0 : (step + generation * (mode === 'DIVERGENCE_ENGINE' ? 3 : 1)) % Math.min(7, scale.length);
         const depth = mode === 'AETHERFLUX' ? .25 : .5;
         playBass(now, (scale[motion] || root) * depth, mode === 'AETHERFLUX' ? .28 : .14);
       }
@@ -1585,7 +1593,7 @@
       updateArrangementReadout();
       const rhythmFamily = {
         NOETIC_SURGE:'PSYTRANCE', POLYATTENTION:'CYBERPUNK_TRANCE', EXURSIVE_FLOW:'MELODIC_TECHNO',
-        HYPERFOCUS_LENS:'PROGRESSIVE_HOUSE', DIVERGENCE_ENGINE:'CYBERPUNK_TRANCE', PHASEWEAVE:'MELODIC_TECHNO',
+        HYPERFOCUS_LENS:'PROGRESSIVE_HOUSE', RTADAOLUAN:'PROGRESSIVE_HOUSE', DIVERGENCE_ENGINE:'CYBERPUNK_TRANCE', PHASEWEAVE:'MELODIC_TECHNO',
         AETHERFLUX:'AMBIENT_LOFI', METAMORPHIC_PULSE:'PSYTRANCE', VIRIDION:'PROGRESSIVE_HOUSE',
         HYPERASTRA:'AMBIENT_LOFI', NOETIC_HYPERFLUX:'CYBERPUNK_TRANCE'
       }[state.amplifierMode];
@@ -1859,7 +1867,7 @@
 
     function applyAudioParameters() {
         if (!audioCtx || audioCtx.state === 'closed') return;
-        const atmosphereLevel = ['EXURSIVE_FLOW','HYPERFOCUS_LENS'].includes(state.amplifierMode) ? .2 : 1;
+        const atmosphereLevel = ['EXURSIVE_FLOW','HYPERFOCUS_LENS','RTADAOLUAN'].includes(state.amplifierMode) ? .2 : 1;
         if (filterNode) {
           filterNode.frequency.value = 200 + (state.filterCutoff * 18000);
           filterNode.Q.value = Math.min(12, 0.5 + (state.resonance || 0) * 14);
@@ -1944,7 +1952,7 @@
       NOETIC_SURGE: { title:'Noetic Surge', description:'An Atlantean blue space-tech stream: liquid-crystal arpeggios, luminous FM tides and echoing celestial bells open into freedom, wonder and cosmic mystery.', genre:'ELECTRO_TRANCE', bpm:144, geometry:'AURORA_WAVES', primaryColor:'#48C8FF', secondaryColor:'#146BFF', accentColor:'#C1F6FF', divergence:.52, multiplicity:.62, coherence:.68, exursion:.48 },
       POLYATTENTION: { title:'Polyattention', description:'Only chopped cybernetic samples: soft liquid-FM chimes, luminous crystal fragments and flowing electronic ripples drift through a stochastic Atlantean soundstream. No melody or chord progression. No drums, percussion or continuous hum.', genre:'GENERATIVE_IDM', lifewayMode:null, filterCutoff:.85, resonance:.12, binauralEnabled:false, solfeggioEnabled:false, isochronicEnabled:false, harmonicVol:0, bpm:136, geometry:'QUANTUM_PARTICLES', divergence:.66, multiplicity:.94, coherence:.34, exursion:.7 },
       EXURSIVE_FLOW: { title:'Exursive Flow', description:'An unwavering electronic pulse drives overlapping distorted synth walls. Slow-building harmonic pressure, static backbeats and escalating stereo bursts gather into a dense, hypnotic surge.', genre:'EXURSIVE_TECHNO', bpm:128, geometry:'COSMIC_TUNNEL', divergence:.82, multiplicity:.58, coherence:.43, exursion:.98 },
-      HYPERFOCUS_LENS: { title:'Hyperfocus Lens', description:'Pure electronic point tones, precise stochastic pulse patterns and three forceful Atlantean crystal voices interleave above the quiet Exursive tone. The trinary layer uses Noetic Surge’s high-register spectral sparks and glass chimes, with quick stereo twinkles and resonant tails. Gentle phase tension resolves into alignment, exploring a musical hypothesis about resonance and attention.', genre:'RESONANCE_LENS', bpm:156, geometry:'SACRED_MANDALA', primaryColor:'#48C8FF', secondaryColor:'#67F0E8', accentColor:'#DCF7FF', divergence:.28, multiplicity:.34, coherence:.96, exursion:.25 },
+      HYPERFOCUS_LENS: { title:'Hyperfocus Lens', description:'Hopeful dawn-like point tones, closely interwoven pulse patterns and three forceful Atlantean crystal voices interleave above the quiet Exursive tone. The trinary layer uses Noetic Surge’s high-register spectral sparks and glass chimes, with quick stereo twinkles and resonant tails. Gentle phase tension resolves into alignment, exploring a musical hypothesis about resonance and attention.', genre:'RESONANCE_LENS', bpm:156, geometry:'SACRED_MANDALA', primaryColor:'#48C8FF', secondaryColor:'#67F0E8', accentColor:'#DCF7FF', divergence:.28, multiplicity:.34, coherence:.96, exursion:.25 },
       DIVERGENCE_ENGINE: { title:'Ecosystems & Hyperecosystems', description:'Nested musical ecologies bifurcate, overlap and create higher-order habitats of sound.', genre:'BIOCYBER_TRANCE', bpm:142, geometry:'QUANTUM_PARTICLES', divergence:.98, multiplicity:.76, coherence:.36, exursion:.86 },
       PHASEWEAVE: { title:'Phaseweave', description:'Asynchronous voices discover and lose transient synchronization.', genre:'POLYRHYTHMIC_TECHNO', bpm:132, geometry:'AURORA_WAVES', divergence:.5, multiplicity:.72, coherence:.7, exursion:.52 },
       AETHERFLUX: { title:'Aetherflux', description:'Slow spectral immensity is punctuated by rare high-information events.', genre:'COSMIC_AMBIENT', bpm:92, geometry:'AURORA_WAVES', divergence:.62, multiplicity:.3, coherence:.6, exursion:.72 },
@@ -1952,6 +1960,12 @@
       VIRIDION: { title:'Viridion', description:'Harmonic growth branches like a luminous biological morphogenesis.', genre:'ORGANIC_HOUSE', bpm:118, geometry:'SACRED_MANDALA', divergence:.46, multiplicity:.68, coherence:.78, exursion:.58 },
       HYPERASTRA: { title:'Hyperastra', description:'Nested musical timescales create an ecology of perceived immensity.', genre:'ASTRAL_DOWNTEMPO', bpm:100, geometry:'COSMIC_TUNNEL', divergence:.7, multiplicity:.84, coherence:.52, exursion:.8 },
       NOETIC_HYPERFLUX: { title:'Noetic Hyperflux', description:'A phase-changing ecology where minor organisms become organizing forces.', genre:'DRUM_AND_BASS', bpm:174, geometry:'COSMIC_TUNNEL', divergence:.72, multiplicity:.68, coherence:.56, exursion:.78 }
+    };
+    amplifierProfiles.RTADAOLUAN = {
+      ...amplifierProfiles.HYPERFOCUS_LENS,
+      title:'Rtadaoluan',
+      description:'A dawning biocyberdynamic: pure hopeful binary point tones tightly multiplex with assertive Atlantean spectral chimes in a shared 2:3 weave, above the quiet Exursive background.',
+      lensBinary:.75, lensTrinary:.8, lensCoupling:.6
     };
     let generatedTrack = null;
     function trackLabel(section) {
@@ -1974,7 +1988,7 @@
         Object.assign(state, { binauralEnabled:false, solfeggioEnabled:false, isochronicEnabled:false, harmonicVol:0, lifewayMode:null, filterCutoff:.85, resonance:.12 });
       }
       applyAudioParameters();
-      document.getElementById('focus-lens').hidden = section.foundation !== 'HYPERFOCUS_LENS';
+      document.getElementById('focus-lens').hidden = !isLensMode(section.foundation);
       amplifierTitle.textContent = 'Stochastic alliance';
       amplifierDescription.textContent = trackLabel(section);
       document.querySelectorAll('[data-amplifier]').forEach(button => {
@@ -2017,10 +2031,16 @@
       for (let i = 0; i < count; i++) {
         const candidates = pool.filter(mode => mode !== sections[i - 1]?.foundation);
         const foundation = candidates[Math.floor(Math.random() * candidates.length)];
-        const available = pool.filter(mode => mode !== foundation);
+        const available = pool.filter(mode => mode !== foundation && !(isLensMode(foundation) && isLensMode(mode)));
         const layers = [];
         const layerCount = Math.min(available.length, variation > .5 ? 2 : 1);
-        while (layers.length < layerCount) layers.push(available.splice(Math.floor(Math.random() * available.length), 1)[0]);
+        while (layers.length < layerCount && available.length) {
+          const selected = available.splice(Math.floor(Math.random() * available.length), 1)[0];
+          layers.push(selected);
+          if (isLensMode(selected)) {
+            for (let remaining=available.length-1;remaining>=0;remaining--) if (isLensMode(available[remaining])) available.splice(remaining, 1);
+          }
+        }
         sections.push({ foundation, layers, mutation:Math.floor(Math.random() * 997) });
       }
       clearSequencerClock();
@@ -2067,7 +2087,8 @@
       maximizeShaderButton.textContent = document.body.classList.contains('shader-maximized') ? 'RESTORE UI' : 'MAXIMIZE SHADER';
     });
     function syncWebControls() {
-      document.getElementById('focus-lens').hidden = state.amplifierMode !== 'HYPERFOCUS_LENS';
+      document.getElementById('focus-lens').hidden = !isLensMode(state.amplifierMode);
+      for (const [id, key] of [['lens-binary','lensBinary'],['lens-trinary','lensTrinary'],['lens-coupling','lensCoupling']]) document.getElementById(id).value = Math.round(state[key] * 100);
       awakenButton.classList.toggle('live', state.isPlaying);
       awakenButton.setAttribute('aria-pressed', String(state.isPlaying));
       awakenButton.setAttribute('title', state.isPlaying ? 'Rest: pause the selected biodynamic' : 'Emerge: start the selected biodynamic');
@@ -2416,7 +2437,7 @@
           ctx.strokeStyle = branch % 2 ? state.primaryColor : state.secondaryColor; ctx.lineWidth = 1.2 + energy * 2.5; ctx.stroke();
           ctx.rotate(-a);
         }
-      } else if (mode === 'HYPERFOCUS_LENS') {
+      } else if (isLensMode(mode)) {
         for (let ring = 0; ring < 18; ring++) {
           const radius = 18 + ring * 17 + Math.sin(timeAcc * 2 + ring * .55) * (4 + energy * 10);
           ctx.beginPath(); ctx.ellipse(0, 0, radius, radius * (.58 + ring * .012), timeAcc * .06, 0, Math.PI * 2);
@@ -2424,7 +2445,7 @@
         }
         ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(0, 0, 8 + energy * 24, 0, Math.PI * 2); ctx.fillStyle = state.secondaryColor; ctx.fill();
         const phase = lensPhaseAt(arrangementTime());
-        const orbit = arrangementTime() / (180 / state.bpm) * Math.PI * 2;
+        const orbit = arrangementTime() / (90 / state.bpm) * Math.PI * 2;
         for (const [count, radius, color] of [[2,105,state.secondaryColor],[3,168,state.primaryColor]]) {
           for (let voice=0;voice<count;voice++) {
             const angle = voice * Math.PI * 2 / count + orbit / count + (count === 3 ? phase.tension * .6 : 0);

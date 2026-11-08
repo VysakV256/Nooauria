@@ -153,7 +153,7 @@ test('Noetic Surge has electronic twinkles and dynamic waves above a straight tr
   assert.ok(h.scoreEvents.some(e => e.instrument === 'playProductionVoice' && e.args[2] === 'glass'));
   assert.ok(h.scoreEvents.some(e => e.instrument === 'playProductionVoice' && e.args[2] === 'fm'));
   for (const mode of h.groups.get('[data-amplifier]')) {
-    if (['NOETIC_SURGE','HYPERFOCUS_LENS'].includes(mode.dataset.amplifier)) continue;
+    if (['NOETIC_SURGE','HYPERFOCUS_LENS','RTADAOLUAN'].includes(mode.dataset.amplifier)) continue;
     h.scoreEvents.length = 0; mode.click(); await settle();
     for (let tick=0; tick<32; tick++) h.advance(.125);
     assert.equal(h.scoreEvents.filter(e => e.instrument === 'playSurgeSpark').length, 0, 'Surge bursts must not leak into other biodynamics');
@@ -246,7 +246,7 @@ test('42-second audio clock survives rest, tempo changes and context reconstruct
   assert.equal(h.errors.length, 0);
 });
 
-test('all fourteen audio graphs remain playable across a full arrangement and its boundary', async () => {
+test('all fifteen audio graphs remain playable across a full arrangement and its boundary', async () => {
   for (const spectrum of ['LIQUID', 'CRYSTAL']) {
     const h = habitat(); h.click('spectrum', spectrum);
     for (const mode of h.groups.get('[data-amplifier]')) {
@@ -454,7 +454,7 @@ test('hyperdynamic interval controls transitions independently of tempo', async 
 test('production grooves have distinct kick patterns and supporting modes never add a second bass lane', async () => {
   const h = habitat({ scoreOnly:true });
   const signatures = new Set();
-  for (const mode of ['EXURSIVE_FLOW','HYPERFOCUS_LENS','DIVERGENCE_ENGINE','PHASEWEAVE','AETHERFLUX','METAMORPHIC_PULSE','VIRIDION','HYPERASTRA','PRISM_BREAKS','VELVET_CIRCUIT','AXIOM_BLOOM']) {
+  for (const mode of ['EXURSIVE_FLOW','HYPERFOCUS_LENS','RTADAOLUAN','DIVERGENCE_ENGINE','PHASEWEAVE','AETHERFLUX','METAMORPHIC_PULSE','VIRIDION','HYPERASTRA','PRISM_BREAKS','VELVET_CIRCUIT','AXIOM_BLOOM']) {
     h.scoreEvents.length = 0;
     h.click('amplifier',mode); await settle();
     for (let i=0;i<15;i++) h.advance(15 / h.arrangement().bpm);
@@ -604,19 +604,19 @@ test('Exursive surges sit above its pulse and continuous tone bed', async () => 
 });
 
 
-test('Hyperfocus multiplexes two drone entries against three Atlantean harmonic entries', async () => {
+test('Hyperfocus multiplexes hopeful binary tones and trinary chimes in a closely woven 2:3 cycle', async () => {
   const h = habitat({ scoreOnly:true }); h.click('amplifier','HYPERFOCUS_LENS'); await settle();
   assert.equal(h.arrangement().bpm, 156);
   for (let i=0;i<11;i++) h.advance(15 / h.arrangement().bpm);
   const voices = h.scoreEvents.filter(e => e.instrument === 'playLensVoice');
   const binary = voices.filter(e => e.args[5] === 'binary');
   const trinary = voices.filter(e => e.args[5] === 'trinary');
-  assert.deepEqual(Array.from(binary, e => e.step), [0,6]);
-  assert.deepEqual(Array.from(binary, e => e.args[6]), [0,1]);
+  assert.deepEqual(Array.from(binary, e => e.step), [0,3,6,9]);
+  assert.deepEqual(Array.from(binary, e => e.args[6]), [0,1,0,1]);
   assert.ok(voices.some(e => e.args[5] === 'binary-detail'), 'Digital detail packets should articulate the gaps between primary pulses');
   assert.ok(trinary.every(e => e.args[2] > .22), 'The spectral chimes should remain prominent');
-  assert.deepEqual(Array.from(trinary, e => e.step), [0,4,8]);
-  assert.deepEqual(Array.from(trinary, e => Math.round(e.args[0])), [2093,3139,4186]);
+  assert.deepEqual(Array.from(trinary, e => e.step), [0,2,4,6,8,10]);
+  assert.deepEqual(Array.from(trinary, e => Math.round(e.args[0])), [2093,3139,4186,2093,3139,4186]);
   const background = h.scoreEvents.filter(e => e.instrument === 'playProductionVoice' && e.args[2] === 'drive');
   assert.ok(Math.min(...voices.map(e => e.args[2])) > Math.max(...background.map(e => e.args[3])) * 4);
   assert.ok(binary.every(e => e.args[1] < 2 * 15 / h.arrangement().bpm));
@@ -699,6 +699,8 @@ test('Binary point tones use only clear sine oscillators with short click-free e
     assert.ok(source.scheduledStopAt - source.startAt < .1);
     assert.equal(source.connections[0].gain.value, 0, 'Each point ends at zero gain');
     assert.ok(nodes.every(n => !n.curve && !['highpass','bandpass'].includes(n.type)));
+    const bank = (variant ? [2.25,2.5,3] : [1,1.125,1.25]).map(ratio => ratio * 1046.496);
+    assert.ok(bank.includes(source.frequency.value), 'Pure point tones should use the shared consonant dawn palette');
     pitches.push(source.frequency.value);
     ctx.advance(.2); assert.equal(source.connections.length, 0);
   }
@@ -708,4 +710,40 @@ test('Binary point tones use only clear sine oscillators with short click-free e
   assert.equal(ctx.nodes.length, before);
   h.element('awaken').click(); await settle();
   assert.equal(h.inspect().voiceCount, 0); assert.equal(h.errors.length, 0);
+});
+
+
+test('Rtadaoluan chip recalls the binary-trinary biocyberdynamic and is available to the composer', async () => {
+  assert.match(html, /Choose a biocyberdynamic/);
+  assert.ok(!html.includes('Choose an evolutionary state'));
+  const h = habitat({ scoreOnly:true });
+  assert.ok(h.groups.get('[data-track-mode]').some(e => e.dataset.trackMode === 'RTADAOLUAN'));
+  h.click('amplifier','RTADAOLUAN'); await settle();
+  assert.equal(h.element('amplifier-title').textContent, 'Rtadaoluan');
+  assert.equal(h.arrangement().bpm, 156);
+  assert.equal(h.element('focus-lens').hidden, false);
+  for (let i=0;i<6;i++) h.advance(15 / h.arrangement().bpm);
+  const voices = h.scoreEvents.filter(e => e.instrument === 'playLensVoice');
+  assert.ok(voices.some(e => e.args[5] === 'binary'));
+  assert.ok(voices.some(e => e.args[5] === 'trinary'));
+  assert.equal(h.element('lens-binary').value, 75);
+  assert.equal(h.element('lens-trinary').value, 80);
+  const background = h.atmosphere();
+  h.click('amplifier','EXURSIVE_FLOW'); await settle();
+  assert.deepEqual(h.atmosphere(), background);
+  assert.equal(h.element('focus-lens').hidden, true);
+  assert.equal(h.errors.length, 0);
+});
+
+
+test('Composer never doubles the saved Rtadaoluan and Hyperfocus sound in one section', async () => {
+  const h = habitat();
+  for (const input of h.groups.get('[data-track-mode]')) input.checked = ['RTADAOLUAN','HYPERFOCUS_LENS','EXURSIVE_FLOW'].includes(input.dataset.trackMode);
+  h.element('generate-track').click(); await settle();
+  for (const section of h.track().sections) {
+    const modes = [section.foundation, ...section.layers];
+    assert.ok(modes.filter(mode => ['RTADAOLUAN','HYPERFOCUS_LENS'].includes(mode)).length <= 1);
+    assert.ok(modes.every(Boolean));
+  }
+  assert.equal(h.errors.length, 0);
 });
