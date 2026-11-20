@@ -21,6 +21,7 @@ uniform vec4 uAmbient;
 uniform vec4 uAuriscape;
 uniform vec4 uField;
 uniform float uMotion;
+uniform vec3 uNeon;
 
 float hash(vec2 p) {
   vec3 seed = fract(vec3(p.xyx) * 0.1031);
@@ -57,7 +58,128 @@ float spores(vec2 p, float density, float radius, float time) {
   return point * blink * smoothstep(1.0 - density, 1.0, seed);
 }
 
+vec3 neonColor(float index) {
+  float channel = mod(index, 4.0);
+  if (channel < 0.5) return vec3(1.0, 0.09, 0.63);
+  if (channel < 1.5) return vec3(0.06, 0.86, 1.0);
+  if (channel < 2.5) return vec3(0.51, 1.0, 0.07);
+  return vec3(1.0, 0.43, 0.06);
+}
+
+float veinOffset(float along, float seed, float roughness) {
+  float turns = along * (11.0 + floor(seed * 5.0));
+  vec2 key = vec2(floor(turns), 2.0 + seed * 17.0);
+  float faults = mix(hash(key), hash(key + vec2(1.0, 0.0)), fract(turns)) - 0.5;
+  float air = sin(along * 5.1 + seed * 8.0 - uField.x * 0.55);
+  float wind = air * (0.014 + (uAmbient.x * 0.058 + uAmbient.y * 0.015) * mix(0.38, 1.0, uMotion));
+  return sin(along * 3.14159) * (wind + faults * roughness);
+}
+
+vec2 veinNormal(vec2 axis) {
+  return normalize(vec2(-axis.y, axis.x));
+}
+
+vec2 veinPoint(vec2 base, vec2 tip, float along, float seed, float roughness) {
+  return mix(base, tip, along) + veinNormal(tip - base) * veinOffset(along, seed, roughness);
+}
+
+vec3 electricVein(vec2 p, vec2 base, vec2 tip, float seed, vec3 color, float width, float roughness) {
+  vec2 axis = tip - base;
+  vec2 relative = p - base;
+  float along = dot(relative, axis) / dot(axis, axis);
+  if (along <= 0.0 || along >= 1.0) return vec3(0.0);
+
+  float lateral = dot(relative, veinNormal(axis));
+  if (abs(lateral) > roughness + width * 18.0 + 0.09) return vec3(0.0);
+
+  float distanceToVein = abs(lateral - veinOffset(along, seed, roughness));
+  float feather = 0.85 / uResolution.y;
+  float taper = mix(1.4, 0.45, along);
+  float coreWidth = width * taper + feather;
+  float core = 1.0 - smoothstep(coreWidth * 0.22, coreWidth, distanceToVein);
+  float ribbon = 1.0 - smoothstep(0.0, coreWidth * 4.8, distanceToVein);
+  float halo = 1.0 - smoothstep(0.0, coreWidth * 11.0, distanceToVein);
+  float phase = along * (15.0 + uAuriscape.z * 4.0) + seed * 3.0 - uField.x * 2.6;
+  float runningLight = pow(0.5 + 0.5 * cos(phase), 4.0);
+  float current = 0.51 + runningLight * (0.18 + uAuriscape.x * 0.22) + uAuriscape.y * 0.17;
+  float lengthFade = smoothstep(0.0, 0.04, along) * (1.0 - smoothstep(0.79, 1.0, along));
+  return lengthFade * current * (
+    mix(color, vec3(0.94, 1.0, 1.0), 0.42) * core * 0.82 +
+    color * (ribbon * 0.76 + halo * halo * 0.42)
+  );
+}
+
+vec3 neonTree(vec2 p, vec2 base, vec2 tip, float tree, float sceneWidth, float depth) {
+  float seed = 0.16 + tree * 0.21;
+  float motion = mix(0.38, 1.0, uMotion);
+  float roughness = 0.085 + (uAmbient.y * 0.075 + uAmbient.z * 0.025) * motion;
+  float spectralTurn = uAuriscape.y * 0.48 + uAuriscape.z * 0.25;
+  vec3 color = mix(neonColor(tree), neonColor(tree + 1.0), spectralTurn);
+  vec3 ink = electricVein(p, base, tip, seed, color, 0.0044 * depth, roughness);
+
+  for (int fork = 0; fork < 4; fork++) {
+    float index = float(fork);
+    float along = 0.23 + index * 0.159;
+    float side = mod(index + tree, 2.0) * 2.0 - 1.0;
+    vec2 junction = veinPoint(base, tip, along, seed, roughness);
+    float reach = (0.22 - index * 0.027) * sceneWidth * (0.87 + uField.y * 0.19);
+    float lift = (0.28 - index * 0.024) * depth;
+    float breeze = sin(uField.x * 0.77 + index + tree) * (0.012 + uAmbient.z * 0.034 * motion);
+    vec2 branchTip = junction + vec2(side * reach + breeze, lift);
+    float forkRoughness = 0.047 + uAmbient.y * 0.044 * motion;
+    float forkSeed = fract(seed + index * 0.147);
+    vec3 petal = mix(color, neonColor(tree + 1.0 + mod(index, 2.0)), 0.24 + uAuriscape.z * 0.25);
+    ink += electricVein(p, junction, branchTip, forkSeed, petal, 0.0029 * depth, forkRoughness) * 0.84;
+
+    if (fork == 1 || fork == 2) {
+      vec2 offshoot = veinPoint(junction, branchTip, 0.51, forkSeed, forkRoughness);
+      vec2 offshootTip = offshoot + vec2(side * reach * 0.4, lift * 0.76);
+      ink += electricVein(p, offshoot, offshootTip, forkSeed * 0.72, petal, 0.0019 * depth, 0.026) * 0.66;
+    }
+
+    float radius = length(p - junction);
+    float hub = 1.0 - smoothstep(0.0015, 0.009 + depth * 0.003, radius);
+    float glow = 1.0 - smoothstep(0.002, 0.037, radius);
+    ink += (mix(petal, vec3(1.0, 0.96, 1.0), 0.29) * hub * 0.44 + petal * glow * glow * 0.27) * depth;
+
+    // A beat accent charges one junction and the first centimetres of its offshoot.
+    float selected = 1.0 - step(0.5, abs(uNeon.z - (tree * 4.0 + index)));
+    float charge = uNeon.y * selected;
+    float falloff = 1.0 - smoothstep(0.008, 0.075 + uAuriscape.x * 0.04, radius);
+    ink += charge * (vec3(0.97, 0.99, 1.0) * hub * 0.6 + petal * falloff * falloff * 1.15);
+  }
+  return ink;
+}
+
+void renderNeon(vec2 uv) {
+  float scale = uResolution.x / max(1.0, uResolution.y);
+  float sceneWidth = min(scale, 3.1);
+  vec2 p = vec2((uv.x - 0.5) * scale, uv.y);
+  float time = uField.x;
+
+  // Four layers sit at different depths around the open centre of the canopy.
+  vec3 far = neonTree(p, vec2(-0.09 * scale, 0.25), vec2(0.03 * scale, 0.75), 2.0, sceneWidth * 0.68, 0.62);
+  far += neonTree(p, vec2(0.18 * scale, 0.21), vec2(0.13 * scale, 0.79), 3.0, sceneWidth * 0.82, 0.77);
+  vec3 near = neonTree(p, vec2(-0.42 * scale, 0.12), vec2(-0.30 * scale, 0.91), 0.0, sceneWidth, 1.0);
+  near += neonTree(p, vec2(0.41 * scale, 0.11), vec2(0.27 * scale, 0.89), 1.0, sceneWidth, 1.0);
+  vec3 ink = far * 0.82 + near;
+  float dust = spores(p * 26.0 + vec2(-time * 0.23, -time * 0.14), 0.23 + uAmbient.z * 0.42, 0.10, time);
+  float drift = spores(p * 14.0 + vec2(time * 0.12, -time * 0.16), 0.17 + uAuriscape.z * 0.40, 0.076, time + 1.8);
+  vec3 air = mix(neonColor(0.0), neonColor(1.0), smoothstep(0.18, 0.82, uv.x));
+  ink += air * dust * (0.25 + uAmbient.w * 0.33);
+  ink += mix(neonColor(2.0), neonColor(3.0), smoothstep(0.27, 0.71, uv.x)) * drift * (0.2 + uAuriscape.z * 0.45);
+
+  ink *= mix(1.0, 1.24, uField.w);
+  float brightness = max(ink.r, max(ink.g, ink.b));
+  gl_FragColor = vec4(ink / max(brightness, 0.001), min(0.88, brightness));
+}
+
 void main() {
+  if (uNeon.x > 0.5) {
+    renderNeon(vUv);
+    return;
+  }
+
   vec2 uv = vUv;
   float x = uv.x - 0.5;
   float time = uField.x;
@@ -177,7 +299,7 @@ function createPipeline(gl) {
   gl.enableVertexAttribArray(position);
   gl.clearColor(0, 0, 0, 0);
   const uniforms = Object.fromEntries(
-    ['Resolution', 'Ambient', 'Auriscape', 'Field', 'Motion'].map(
+    ['Resolution', 'Ambient', 'Auriscape', 'Field', 'Motion', 'Neon'].map(
       (name) => [name, gl.getUniformLocation(program, 'u' + name)]
     )
   );
@@ -207,6 +329,8 @@ export function createAuriscapeShader(canvas) {
   let lastMode;
   let lastImmersive;
   let lastMotion;
+  let lastNeon;
+  let lastFlashIndex;
 
   function preparePipeline() {
     try {
@@ -255,7 +379,10 @@ export function createAuriscapeShader(canvas) {
 
   return {
     get available() { return pipeline !== null; },
-    update({ ambient: room, auriscape: generated, growth, playing, mode, immersive, enabled = true }) {
+    update({
+      ambient: room, auriscape: generated, growth, playing, mode, immersive,
+      enabled = true, neon = false, flash = 0, flashIndex = 0,
+    }) {
       if (!pipeline) return;
       if (!enabled) {
         if (visible) gl.clear(gl.COLOR_BUFFER_BIT);
@@ -268,10 +395,12 @@ export function createAuriscapeShader(canvas) {
 
       const now = performance.now();
       const reducedMotion = motionPreference.matches;
+      const localFlashIndex = Math.floor(Math.max(0, Number(flashIndex) || 0)) % 16;
+      const flashChanged = neon && !reducedMotion && flash > 0 && localFlashIndex !== lastFlashIndex;
       const viewChanged = !visible || boundsDirty || mode !== lastMode ||
-        immersive !== lastImmersive || reducedMotion !== lastMotion;
+        immersive !== lastImmersive || reducedMotion !== lastMotion || neon !== lastNeon || flashChanged;
       if (!playing && !viewChanged && growth === lastGrowth && ambient.every(nearSilence) && auriscape.every(nearSilence)) return;
-      const interval = reducedMotion || !playing ? 100 : 18;
+      const interval = reducedMotion || !playing ? 100 : neon ? 25 : 18;
       if (!viewChanged && lastFrame !== undefined && now - lastFrame < interval) return;
       const elapsed = lastFrame === undefined ? 16 : Math.min(150, now - lastFrame);
       lastFrame = now;
@@ -298,11 +427,15 @@ export function createAuriscapeShader(canvas) {
       gl.uniform4fv(uniforms.Auriscape, auriscape);
       gl.uniform4f(uniforms.Field, clock, clamp(growth), mode === 'hyperforest' ? 1 : 0, immersive ? 1 : 0);
       gl.uniform1f(uniforms.Motion, reducedMotion ? 0 : 1);
+      const charge = neon && playing && !reducedMotion ? clamp(flash) : 0;
+      gl.uniform3f(uniforms.Neon, neon ? 1 : 0, charge, localFlashIndex);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       lastGrowth = growth;
       lastMode = mode;
       lastImmersive = immersive;
       lastMotion = reducedMotion;
+      lastNeon = neon;
+      lastFlashIndex = localFlashIndex;
       visible = true;
     },
     destroy() {

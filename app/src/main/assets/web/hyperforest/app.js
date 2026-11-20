@@ -12,6 +12,7 @@ const playButton = byId('play-button');
 const micButton = byId('mic-button');
 const volume = byId('volume');
 const visualizerToggle = byId('visualizer-toggle');
+const neonToggle = byId('neon-toggle');
 const visualizerSignals = byId('visualizer-signals');
 const ambientSignal = byId('ambient-signal');
 const auriscapeSignal = byId('auriscape-signal');
@@ -26,6 +27,8 @@ const visual = createForestVisualizer(byId('field-canvas'), { waveformPosition: 
 const shader = createAuriscapeShader(byId('auriscape-canvas'));
 const sourceNames = { city: 'City streets', rain: 'Rainfall', night: 'Night air', mic: 'Live microphone' };
 const modeNames = { forest: 'Forest', hyperforest: 'Hyperforest' };
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+const FLASH_INTERVAL_MS = 420;
 
 let current = buildScene(promptInput.value);
 let input = 'city';
@@ -35,6 +38,12 @@ let inputRequest = 0;
 let isStarting = false;
 let muted = false;
 let immersive = false;
+let neon = false;
+let lastFlashTime = -Infinity;
+let flashStrength = 0;
+let flashIndex = 0;
+let previousBeat = false;
+let previousAttack = false;
 let canvasGrowth = 0.90;
 let hasPlayed = false;
 let lastFrame = performance.now();
@@ -55,6 +64,27 @@ function showError(element, message) {
 function setSignalLevel(meter, signal) {
   const level = Math.round(signal * 100) / 100;
   if (meter.value !== level) meter.value = level;
+}
+
+function neonFlash(time, field, auriscape) {
+  // Step eight has no guaranteed kick or backbeat.
+  const beat = field.beat >= 0.64 && field.step !== 8;
+  const attack = auriscape.beat >= 0.44;
+  const accent = (beat && !previousBeat) || (attack && !previousAttack);
+  previousBeat = beat;
+  previousAttack = attack;
+
+  if (!neon || !field.running || document.hidden || reducedMotion.matches) {
+    flashStrength = 0;
+    return 0;
+  }
+
+  if (accent && time - lastFlashTime >= FLASH_INTERVAL_MS) {
+    lastFlashTime = time;
+    flashStrength = Math.min(0.92, 0.49 + Math.max(auriscape.beat, auriscape.low) * 0.43);
+    flashIndex += auriscape.high > auriscape.mid ? 7 : 3;
+  }
+  return flashStrength * Math.exp(-(time - lastFlashTime) / 92);
 }
 
 function sceneName(prompt) {
@@ -231,6 +261,11 @@ visualizerToggle.addEventListener('click', () => {
   visualizerToggle.setAttribute('aria-pressed', String(immersive));
   visualizerSignals.hidden = !immersive;
 });
+neonToggle.addEventListener('click', () => {
+  neon = !neon;
+  scene.dataset.neon = String(neon);
+  neonToggle.setAttribute('aria-pressed', String(neon));
+});
 volume.addEventListener('input', () => {
   muted = false;
   drawVolume();
@@ -292,7 +327,11 @@ function drawField(time) {
 
   const growth = hasPlayed ? canvasGrowth : 0.48;
   const fallback = !shader.available;
-  shader.update({ ambient: meters, auriscape, growth, playing: meters.running, mode: current.mode, immersive });
+  const flash = neonFlash(time, meters, auriscape);
+  shader.update({
+    ambient: meters, auriscape, growth, playing: meters.running,
+    mode: current.mode, immersive, neon, flash, flashIndex,
+  });
   visual.update({
     growth,
     energy: Math.min(1, meters.level * 1.6 + (fallback ? auriscape.level * 0.5 : 0)),
@@ -304,6 +343,9 @@ function drawField(time) {
     auriscape,
     immersive,
     fallback,
+    neon,
+    flash,
+    flashIndex,
   });
   requestAnimationFrame(drawField);
 }

@@ -5,6 +5,12 @@ const sage = '131, 221, 188';
 const amber = '240, 204, 114';
 const bands = ['low', 'mid', 'high'];
 const nearSilence = value => value < 0.004;
+const neonPalette = [
+  { glow: '35, 226, 254', core: '172, 250, 255', band: 2 },
+  { glow: '255, 49, 187', core: '255, 171, 230', band: 1 },
+  { glow: '161, 252, 57', core: '222, 255, 171', band: 2 },
+  { glow: '255, 176, 43', core: '255, 231, 155', band: 0 },
+];
 
 const meter = (signal, key) => {
   const value = signal?.[key];
@@ -15,6 +21,46 @@ function randomGenerator(seed) {
   return () => {
     seed = (Math.imul(1664525, seed) + 1013904223) >>> 0;
     return seed / 4294967296;
+  };
+}
+
+function createNeonEcosystem() {
+  const random = randomGenerator(610497);
+  const anchors = [
+    [0.14, 0.43, 0.40, 0],
+    [0.30, 0.59, -0.76, 3],
+    [0.39, 0.33, 0.54, 1],
+    [0.52, 0.53, -0.49, 2],
+    [0.64, 0.29, 0.61, 0],
+    [0.71, 0.63, -1.02, 1],
+    [0.85, 0.44, 2.77, 2],
+    [0.91, 0.63, 3.41, 3],
+  ];
+
+  return anchors.map(([x, y, angle, palette]) => ({
+    x, y, angle, palette,
+    phase: random() * Math.PI * 2,
+    length: 0.85 + random() * 0.32,
+    arms: [0, 0.76, -1.03].map((offset, index) => ({
+      offset,
+      length: index === 0 ? 1 : 0.43 + random() * 0.28,
+      knots: Array.from({ length: 7 - index }, (_, step) => (
+        step === 0 ? 0 : (random() * 2 - 1) * (step % 2 ? 0.18 : 0.10)
+      )),
+    })),
+  }));
+}
+
+const ecosystem = createNeonEcosystem();
+
+function neonPoint(x, y, angle, length, knots, tension, progress) {
+  const position = progress * (knots.length - 1);
+  const index = Math.floor(position);
+  const advance = length * progress;
+  const offset = (knots[index] + (knots[index + 1] - knots[index]) * (position - index)) * length * tension;
+  return {
+    x: x + Math.cos(angle) * advance - Math.sin(angle) * offset,
+    y: y + Math.sin(angle) * advance + Math.cos(angle) * offset,
   };
 }
 
@@ -79,6 +125,9 @@ export function createForestVisualizer(canvas, { waveformPosition = 0.84, showWa
     auriscape: null,
     immersive: false,
     fallback: false,
+    neon: false,
+    flash: 0,
+    flashIndex: 0,
   };
 
   function resize() {
@@ -291,6 +340,98 @@ export function createForestVisualizer(canvas, { waveformPosition = 0.84, showWa
     }
   }
 
+  function traceNeonArm(x, y, angle, length, knots, tension) {
+    const alongX = Math.cos(angle);
+    const alongY = Math.sin(angle);
+    context.beginPath();
+    context.moveTo(x, y);
+    for (let index = 1; index < knots.length; index += 1) {
+      const advance = length * index / (knots.length - 1);
+      const offset = knots[index] * length * tension;
+      context.lineTo(x + alongX * advance - alongY * offset, y + alongY * advance + alongX * offset);
+    }
+  }
+
+  function drawNeon(time, reduced, hyper) {
+    const immersive = state.immersive;
+    const size = Math.min(width, height);
+    const focus = Number.isInteger(state.flashIndex) ? Math.abs(state.flashIndex) % ecosystem.length : 0;
+    const flash = state.playing && !reduced ? meter(state, 'flash') : 0;
+    const stems = (immersive ? 0.33 : 0.29) * size * (0.88 + smoothGrowth * 0.16 + auriscape[0] * 0.24);
+    context.globalCompositeOperation = 'screen';
+    context.lineJoin = 'round';
+    context.globalAlpha = 1;
+
+    const nodes = ecosystem.map((node, index) => {
+      const spectrum = neonPalette[node.palette];
+      const energy = clamp(auriscape[spectrum.band] * 0.77 + ambient[spectrum.band] * 0.34);
+      const surge = index === focus ? flash : 0;
+      const drift = Math.sin(time * 0.79 + node.phase);
+      return {
+        ...node, spectrum, energy, surge,
+        x: node.x * width + drift * 4,
+        y: node.y * height + Math.cos(time * 0.54 + node.phase) * 4,
+        angle: node.angle + drift * (0.08 + auriscape[1] * 0.19),
+      };
+    });
+
+    for (const node of nodes) {
+      const { glow, core } = node.spectrum;
+      const reach = stems * node.length * (1 + node.surge * 0.08);
+      const tension = 0.69 + auriscape[2] * 0.66 + ambient[2] * 0.22;
+      const light = 0.60 + node.energy * 0.18 + node.surge * 0.12;
+      const armCount = immersive || hyper ? 3 : 2;
+      for (let index = 0; index < armCount; index += 1) {
+        const arm = node.arms[index];
+        const { x, y } = index
+          ? neonPoint(node.x, node.y, node.angle, reach, node.arms[0].knots, tension, 0.22 + index * 0.12)
+          : node;
+        const angle = node.angle + arm.offset;
+        const length = reach * arm.length;
+        const fade = context.createLinearGradient(x, y, x + Math.cos(angle) * length, y + Math.sin(angle) * length);
+        fade.addColorStop(0, `rgba(${core}, ${light * (index ? 0.61 : 1)})`);
+        fade.addColorStop(0.46, `rgba(${glow}, ${light * 0.78})`);
+        fade.addColorStop(1, `rgba(${glow}, 0)`);
+        traceNeonArm(x, y, angle, length, arm.knots, tension);
+
+        context.globalAlpha = 0.24;
+        context.strokeStyle = fade;
+        context.lineWidth = 4.6 + node.energy * 2.2;
+        context.stroke();
+        context.globalAlpha = 1;
+        context.lineWidth = (index ? 0.9 : 1.35) + node.energy * 0.40;
+        context.stroke();
+
+        if (!reduced && state.playing && index === 0) {
+          const travel = (time * (0.28 + auriscape[2] * 0.12) + node.phase) % 1;
+          const spark = neonPoint(x, y, angle, length, arm.knots, tension, travel);
+          context.beginPath();
+          context.moveTo(spark.x - Math.cos(angle) * 10, spark.y - Math.sin(angle) * 10);
+          context.lineTo(spark.x, spark.y);
+          context.lineWidth = 1.2;
+          context.strokeStyle = `rgba(${core}, ${light * 0.52})`;
+          context.stroke();
+        }
+      }
+    }
+
+    for (const node of nodes) {
+      const { glow, core } = node.spectrum;
+      const radius = clamp(size * (0.072 + node.energy * 0.025), 16, 38) + node.surge * 10;
+      drawHaze(node.x, node.y, radius, glow, 0.20 + node.energy * 0.14 + node.surge * 0.15);
+
+      context.fillStyle = `rgba(${glow}, ${0.23 + node.energy * 0.15 + node.surge * 0.16})`;
+      context.beginPath();
+      context.arc(node.x, node.y, 5.1 + node.energy * 2 + node.surge * 3.2, 0, Math.PI * 2);
+      context.fill();
+
+      context.fillStyle = `rgba(${core}, ${0.82 + node.energy * 0.1 + node.surge * 0.08})`;
+      context.beginPath();
+      context.arc(node.x, node.y, 2.3 + node.energy * 1.15 + node.surge * 1.5, 0, Math.PI * 2);
+      context.fill();
+    }
+  }
+
   function drawFallback(interval, reduced, hyper) {
     const response = 1 - Math.exp(-interval / (reduced ? 480 : 160));
     const room = state.playing ? state.ambient : null;
@@ -307,13 +448,17 @@ export function createForestVisualizer(canvas, { waveformPosition = 0.84, showWa
       ? auriscape[3] + (beat * 0.28 - auriscape[3]) * response
       : Math.max(beat, auriscape[3] * Math.exp(-interval / 160));
     if (state.playing && !reduced) fieldTime += interval / 1000;
-    if (ambient.every(nearSilence) && auriscape.every(nearSilence)) return;
+    const contours = !ambient.every(nearSilence) || !auriscape.every(nearSilence);
+    if (!contours && !state.neon) return;
     const time = reduced ? 0 : fieldTime;
 
     context.save();
     context.lineCap = 'round';
-    drawAmbientContours(time, state.immersive, hyper);
-    drawAuriscapeContours(time, state.immersive, hyper);
+    if (contours) {
+      drawAmbientContours(time, state.immersive, hyper);
+      drawAuriscapeContours(time, state.immersive, hyper);
+    }
+    if (state.neon) drawNeon(time, reduced, hyper);
     context.restore();
   }
 
