@@ -39,16 +39,17 @@ fun GenerativeVisualizerScreen(
     cognitiveState: CognitiveState,
     visualizerState: VisualizerState,
     onVisualizerStateChange: (VisualizerState) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    playbackPaused: Boolean = false
 ) {
     var webViewInstance by remember { mutableStateOf<WebView?>(null) }
     var promptInput by remember { mutableStateOf("") }
     val chatEngine = remember { VisualizerChatEngine() }
 
-    LaunchedEffect(djState, cognitiveState, visualizerState, webViewInstance) {
+    LaunchedEffect(djState, cognitiveState, visualizerState, webViewInstance, playbackPaused) {
         webViewInstance?.let { webView ->
             val jsonObj = JSONObject().apply {
-                put("isPlaying", djState.isPlaying)
+                put("isPlaying", djState.isPlaying && !playbackPaused)
                 put("bpm", djState.bpm)
                 put("genre", djState.genre.name)
                 put("activeSection", djState.activeSection.name)

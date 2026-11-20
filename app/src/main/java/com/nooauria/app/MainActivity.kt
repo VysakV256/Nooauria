@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Park
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,6 +34,7 @@ import com.nooauria.app.model.VisualizerState
 import com.nooauria.app.ui.CognitiveScreen
 import com.nooauria.app.ui.DjConsoleScreen
 import com.nooauria.app.ui.GenerativeVisualizerScreen
+import com.nooauria.app.ui.HyperforestScreen
 import com.nooauria.app.ui.theme.DarkBackground
 import com.nooauria.app.ui.theme.NooauriaTheme
 import com.nooauria.app.ui.theme.NeonCyan
@@ -56,13 +58,15 @@ class MainActivity : ComponentActivity() {
 enum class NavigationTab(val title: String) {
     DJ_CONSOLE("DJ Console"),
     COGNITIVE("Brain Entrainment"),
-    VISUALIZER("AI Visualizer")
+    VISUALIZER("AI Visualizer"),
+    HYPERFOREST("Hyperforest")
 }
 
 @Composable
 fun MainAppScreen() {
     val context = LocalContext.current
     var selectedTab by remember { mutableStateOf(NavigationTab.DJ_CONSOLE) }
+    var beforeHyperforest by remember { mutableStateOf(NavigationTab.DJ_CONSOLE) }
 
     var djState by remember { mutableStateOf(DjState()) }
     var cognitiveState by remember { mutableStateOf(CognitiveState()) }
@@ -122,6 +126,18 @@ fun MainAppScreen() {
                     label = { Text("HABITAT", fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp) },
                     colors = livingNavColors()
                 )
+                NavigationBarItem(
+                    selected = selectedTab == NavigationTab.HYPERFOREST,
+                    onClick = {
+                        if (selectedTab != NavigationTab.HYPERFOREST) {
+                            beforeHyperforest = selectedTab
+                            selectedTab = NavigationTab.HYPERFOREST
+                        }
+                    },
+                    icon = { Icon(Icons.Default.Park, contentDescription = NavigationTab.HYPERFOREST.title) },
+                    label = { Text("FOREST", fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp) },
+                    colors = livingNavColors()
+                )
             }
         }
     ) { innerPadding ->
@@ -143,10 +159,11 @@ fun MainAppScreen() {
                 cognitiveState = cognitiveState,
                 visualizerState = visualizerState,
                 onVisualizerStateChange = { visualizerState = it },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                playbackPaused = selectedTab == NavigationTab.HYPERFOREST
             )
 
-            // Overlay DJ Console or Cognitive Screen on top when selected
+            // Overlay the selected tool on the persistent visualizer.
             when (selectedTab) {
                 NavigationTab.DJ_CONSOLE -> {
                     DjConsoleScreen(
@@ -168,6 +185,12 @@ fun MainAppScreen() {
                 }
                 NavigationTab.VISUALIZER -> {
                     // Visualizer chat drawer is shown inside GenerativeVisualizerScreen
+                }
+                NavigationTab.HYPERFOREST -> {
+                    HyperforestScreen(
+                        onBack = { selectedTab = beforeHyperforest },
+                        modifier = Modifier.fillMaxSize()
+                    )
                 }
             }
         }

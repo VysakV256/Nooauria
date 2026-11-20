@@ -29,7 +29,11 @@
       padding:18px; color:#f1f3dc; background:rgba(16,29,23,.86); border:1px solid rgba(103,232,194,.22);
       border-radius:30px 14px 30px 14px; backdrop-filter:blur(20px); box-shadow:0 22px 70px rgba(0,0,0,.4);
     }
-    .dock-head { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:14px; }
+    .dock-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 16px; margin-bottom:14px; }
+    .dock-actions { display:flex; align-items:center; gap:12px; }
+    #hyperforest-link { padding:10px 12px; color:#b8f35a; background:rgba(184,243,90,.08); border:1px solid rgba(184,243,90,.42); border-radius:16px 7px 16px 7px; font:700 11px/1 sans-serif; text-decoration:none; white-space:nowrap; }
+    #hyperforest-link:hover { background:#b8f35a; color:#07100c; }
+    #hyperforest-link:focus-visible { outline:2px solid #f3d58b; outline-offset:3px; }
     .eyebrow { color:#67e8c2; font-size:10px; letter-spacing:.17em; text-transform:uppercase; }
     .pulse { color:#93a89b; font-size:11px; }
     .controls { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:14px; align-items:center; }
@@ -119,7 +123,13 @@
   <button id="awaken" type="button" aria-label="Emerge | Rest" aria-pressed="false" aria-describedby="pulse-readout" title="Emerge: start the selected biodynamic"><span class="emerge-label">EMERGE</span><span class="playback-divider" aria-hidden="true">|</span><span class="rest-label">REST</span></button>
   <button id="maximize-shader" type="button" aria-label="Maximize shader">MAXIMIZE SHADER</button>
   <section id="control-dock" aria-label="Nooauria habitat controls">
-    <div class="dock-head"><span class="eyebrow">Choose a biocyberdynamic</span><span class="pulse" id="pulse-readout">128 BPM · dormant</span></div>
+    <div class="dock-head">
+      <span class="eyebrow">Choose a biocyberdynamic</span>
+      <div class="dock-actions">
+        <span class="pulse" id="pulse-readout">128 BPM · dormant</span>
+        <a id="hyperforest-link" href="./hyperforest/">Hyperforest</a>
+      </div>
+    </div>
     <div class="amplifier-meta">
       <div><strong id="amplifier-title">Noetic Hyperflux</strong><p id="amplifier-description">A phase-changing ecology where minor organisms become organizing forces.</p></div>
       <span class="generation" id="generation-readout">generation 000</span>
@@ -502,6 +512,7 @@
       const gesture = event && (event.type === 'click' || event.type === 'touchstart');
       if (state.isPlaying) startSequencer(gesture);
     }
+    if (window.location?.protocol === 'file:') document.getElementById('hyperforest-link').hidden = true;
     document.addEventListener('click', recoverPlayback);
     document.addEventListener('touchstart', recoverPlayback, { passive: true });
     document.addEventListener('visibilitychange', () => {

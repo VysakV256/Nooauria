@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0c100d">
+  <meta name="description" content="Grow an evolving jungle beat from a text prompt and the sounds around you.">
+  <title>Hyperforest — Nooauria</title>
+  <link rel="icon" href="./mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <svg class="symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M6 18c-4-5 0-11 13-13 0 11-6 15-11 13m-4 3c4-6 7-8 11-11"/></symbol>
+    <symbol id="i-sound" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4V5Zm4 4a4 4 0 0 1 0 6m3-9a8 8 0 0 1 0 12"/></symbol>
+    <symbol id="i-mute" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4V5Zm5 4 5 6m0-6-5 6"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5 12 7-12 7V5Z" fill="currentColor" stroke-linejoin="round"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14" stroke-width="3" stroke-linecap="round"/></symbol>
+    <symbol id="i-sprout" viewBox="0 0 24 24"><path d="M12 21v-9m0 2C12 8 8 6 3 6c0 6 4 8 9 8Zm0-2c0-6 3-9 9-9 0 6-3 9-9 9Z"/></symbol>
+    <symbol id="i-wave" viewBox="0 0 24 24"><path d="M3 12v1m4-5v9m5-14v19m5-14v9m4-5v1"/></symbol>
+    <symbol id="i-city" viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4v18m0-12h7v12M8 9h1m-1 4h1m-1 4h1m6-4h1m-1 4h1"/></symbol>
+    <symbol id="i-rain" viewBox="0 0 24 24"><path d="M5 14a4 4 0 0 1 1-7.9 6 6 0 0 1 11.5 2A3 3 0 1 1 18 14M8 13l-2 5m7-5-2 8m7-5-1 3"/></symbol>
+    <symbol id="i-night" viewBox="0 0 24 24"><path d="M21 14A9 9 0 0 1 10 3a9 9 0 1 0 11 11ZM17 3v4m-2-2h4m3 3v2"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11v1a7 7 0 0 0 14 0v-1m-7 8v3m-3 0h6"/></symbol>
+    <symbol id="i-trees" viewBox="0 0 24 24"><path d="m8 3-5 8h3l-4 6h12l-4-6h3L8 3Zm0 14v4m8-14 4 6h-2l4 5h-6m2 0v3"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M11 2 9 9l-7 2 7 2 2 7 2-7 7-2-7-2-2-7Zm7 13 1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3Z"/></symbol>
+  </svg>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <nav class="brand-path" aria-label="Nooauria">
+        <a class="brand" href="../" aria-label="Return to Nooauria">
+          <span class="brand-mark"><svg class="icon"><use href="#i-leaf"/></svg></span>
+          <span>Nooauria</span>
+        </a>
+        <span class="instrument-name">Hyperforest</span>
+      </nav>
+      <div class="audio-control">
+        <button type="button" id="sound-toggle" class="icon-button" aria-label="Mute audio" aria-pressed="false">
+          <svg class="icon"><use id="sound-icon" href="#i-sound"/></svg>
+        </button>
+        <input id="volume" type="range" min="0" max="100" value="72" aria-label="Output volume">
+      </div>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="intro" aria-labelledby="page-title">
+      <h1 id="page-title">Grow a forest <em>from sound.</em></h1>
+      <p>Plant a prompt. Let the sounds around you shape a living jungle beat.</p>
+    </section>
+
+    <section class="scene" id="scene" aria-label="Sound-reactive forest">
+      <div class="scene-layer city-layer"></div>
+      <div class="scene-layer forest-layer"></div>
+      <div class="scene-shade"></div>
+      <canvas id="field-canvas" aria-hidden="true"></canvas>
+
+      <div class="scene-top">
+        <div class="field-status"><span class="status-light"></span><span id="field-status" role="status">Field ready</span></div>
+        <div class="growth-display">
+          <span>Canopy</span>
+          <div class="growth-track" aria-hidden="true"><div id="growth-fill"></div></div>
+          <span id="growth-value">—</span>
+        </div>
+      </div>
+      <div class="scene-bottom">
+        <div class="scene-info">
+          <div class="scene-kicker"><svg class="icon"><use href="#i-leaf"/></svg><span id="field-input">City streets</span></div>
+          <h2 id="scene-title">Concrete canopy</h2>
+          <div class="scene-stats">
+            <span id="scene-bpm"></span><span id="scene-key"></span><span id="scene-mode">Forest</span>
+          </div>
+        </div>
+        <div class="transport">
+          <button type="button" class="primary transport-button" id="play-button">
+            <svg class="icon"><use id="play-icon" href="#i-play"/></svg><span id="play-label">Play scene</span>
+          </button>
+          <span class="keyboard-hint" aria-hidden="true"><kbd>Space</kbd></span>
+        </div>
+      </div>
+    </section>
+    <p id="transport-error" class="error transport-error" role="status" hidden></p>
+
+    <div class="studio">
+      <section class="panel seed-panel" aria-labelledby="seed-heading">
+        <div class="panel-heading">
+          <div class="panel-icon"><svg class="icon"><use href="#i-sprout"/></svg></div>
+          <div><h2 id="seed-heading">Plant a prompt</h2><p>Describe the forest you want to hear.</p></div>
+        </div>
+        <form id="seed-form">
+          <div class="seed-entry">
+            <label class="sr-only" for="prompt">Forest prompt</label>
+            <textarea id="prompt" rows="2" maxlength="240" placeholder="Describe your forest…" required>Concrete canopy, heavy rain and deep green bass</textarea>
+            <button class="seed-button" type="submit">Grow <svg class="icon"><use href="#i-sprout"/></svg></button>
+          </div>
+          <div class="prompt-presets" aria-label="Example prompts">
+            <button type="button" data-prompt="An overgrown subway in a thunderstorm, heavy bass and chopped breaks">Overgrown subway</button>
+            <button type="button" data-prompt="Bioluminescent ferns at midnight, soft birdsong and a deep rolling bass">Midnight ferns</button>
+            <button type="button" data-prompt="Neon vines across the city, rapid jungle breaks and bright synths">Neon vines</button>
+          </div>
+        </form>
+        <div class="mode-row">
+          <span class="control-label" id="mode-label">Beat mode</span>
+          <div class="mode-switch" role="group" aria-labelledby="mode-label">
+            <button type="button" data-mode="forest" aria-pressed="true"><svg class="icon"><use href="#i-trees"/></svg>Forest</button>
+            <button type="button" data-mode="hyperforest" aria-pressed="false"><svg class="icon"><use href="#i-spark"/></svg>Hyperforest</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel input-panel" aria-labelledby="input-heading">
+        <div class="panel-heading">
+          <div class="panel-icon"><svg class="icon"><use href="#i-wave"/></svg></div>
+          <div><h2 id="input-heading">Ambient input</h2><p>Choose what feeds the forest.</p></div>
+        </div>
+        <div class="sources" role="group" aria-label="Ambient input source">
+          <button type="button" class="source" data-input="city" aria-pressed="true"><svg class="icon"><use href="#i-city"/></svg><span>City</span></button>
+          <button type="button" class="source" data-input="rain" aria-pressed="false"><svg class="icon"><use href="#i-rain"/></svg><span>Rain</span></button>
+          <button type="button" class="source" data-input="night" aria-pressed="false"><svg class="icon"><use href="#i-night"/></svg><span>Night</span></button>
+        </div>
+
+        <button type="button" id="mic-button" class="mic-button" data-input="mic" aria-pressed="false">
+          <span class="mic-label"><svg class="icon"><use href="#i-mic"/></svg><span>Use microphone</span></span>
+          <span id="mic-switch" class="switch" aria-hidden="true"></span>
+        </button>
+        <div class="input-details">
+          <span id="input-description">Microphone audio stays on this device.</span>
+          <div id="input-meter" class="input-meter" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+        <p id="input-error" class="error" role="status" hidden></p>
+      </section>
+    </div>
+    <p class="sr-only" id="announcement" role="status"></p>
+  </main>
+</body>
+</html>
