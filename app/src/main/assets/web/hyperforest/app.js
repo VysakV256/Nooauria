@@ -1,5 +1,6 @@
 import { buildScene, ForestAudio } from './audio.js';
 import { createForestVisualizer } from './visual.js';
+import { createAuriscapeShader } from './shader.js';
 
 const byId = (id) => document.getElementById(id);
 const scene = byId('scene');
@@ -10,6 +11,10 @@ const promptInput = byId('prompt');
 const playButton = byId('play-button');
 const micButton = byId('mic-button');
 const volume = byId('volume');
+const visualizerToggle = byId('visualizer-toggle');
+const visualizerSignals = byId('visualizer-signals');
+const ambientSignal = byId('ambient-signal');
+const auriscapeSignal = byId('auriscape-signal');
 const inputError = byId('input-error');
 const transportError = byId('transport-error');
 const inputButtons = [...document.querySelectorAll('[data-input]')];
@@ -18,6 +23,7 @@ const presets = [...document.querySelectorAll('[data-prompt]')];
 const meterLights = [...byId('input-meter').children];
 const waveform = new Uint8Array(230);
 const visual = createForestVisualizer(byId('field-canvas'), { waveformPosition: 0.69 });
+const shader = createAuriscapeShader(byId('auriscape-canvas'));
 const sourceNames = { city: 'City streets', rain: 'Rainfall', night: 'Night air', mic: 'Live microphone' };
 const modeNames = { forest: 'Forest', hyperforest: 'Hyperforest' };
 
@@ -28,6 +34,7 @@ let awaitingMicrophone = false;
 let inputRequest = 0;
 let isStarting = false;
 let muted = false;
+let immersive = false;
 let canvasGrowth = 0.90;
 let hasPlayed = false;
 let lastFrame = performance.now();
@@ -43,6 +50,11 @@ function announce(message) {
 function showError(element, message) {
   element.textContent = message;
   element.hidden = !message;
+}
+
+function setSignalLevel(meter, signal) {
+  const level = Math.round(signal * 100) / 100;
+  if (meter.value !== level) meter.value = level;
 }
 
 function sceneName(prompt) {
@@ -213,6 +225,12 @@ for (const button of inputButtons) {
 }
 
 playButton.addEventListener('click', togglePlayback);
+visualizerToggle.addEventListener('click', () => {
+  immersive = !immersive;
+  scene.dataset.visualizer = String(immersive);
+  visualizerToggle.setAttribute('aria-pressed', String(immersive));
+  visualizerSignals.hidden = !immersive;
+});
 volume.addEventListener('input', () => {
   muted = false;
   drawVolume();
@@ -239,6 +257,7 @@ document.addEventListener('visibilitychange', () => {
 
 function drawField(time) {
   const meters = audio.getMeters();
+  const auriscape = audio.getAuriscapeMeters();
   const elapsed = Math.min(100, time - lastFrame) / 1000;
   lastFrame = time;
   if (!awaitingMicrophone && input !== meters.input) {
@@ -266,13 +285,25 @@ function drawField(time) {
     lastLevel = level;
     meterLights.forEach((bar, index) => bar.classList.toggle('active', index < level));
   }
+  if (immersive) {
+    setSignalLevel(ambientSignal, meters.level);
+    setSignalLevel(auriscapeSignal, auriscape.level);
+  }
+
+  const growth = hasPlayed ? canvasGrowth : 0.48;
+  const fallback = !shader.available;
+  shader.update({ ambient: meters, auriscape, growth, playing: meters.running, mode: current.mode, immersive });
   visual.update({
-    growth: hasPlayed ? canvasGrowth : 0.48,
-    energy: Math.min(1, meters.level * 1.6),
-    transient: meters.onset,
+    growth,
+    energy: Math.min(1, meters.level * 1.6 + (fallback ? auriscape.level * 0.5 : 0)),
+    transient: Math.max(meters.onset, fallback ? auriscape.beat : 0),
     waveform: audio.getWaveform(waveform),
     playing: meters.running,
     mode: current.mode,
+    ambient: meters,
+    auriscape,
+    immersive,
+    fallback,
   });
   requestAnimationFrame(drawField);
 }

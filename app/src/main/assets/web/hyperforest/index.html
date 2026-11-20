@@ -55,15 +55,27 @@
     <section class="scene" id="scene" aria-label="Sound-reactive forest">
       <div class="scene-layer city-layer"></div>
       <div class="scene-layer forest-layer"></div>
+      <canvas id="auriscape-canvas" aria-hidden="true"></canvas>
       <div class="scene-shade"></div>
       <canvas id="field-canvas" aria-hidden="true"></canvas>
 
       <div class="scene-top">
         <div class="field-status"><span class="status-light"></span><span id="field-status" role="status">Field ready</span></div>
-        <div class="growth-display">
-          <span>Canopy</span>
-          <div class="growth-track" aria-hidden="true"><div id="growth-fill"></div></div>
-          <span id="growth-value">—</span>
+        <div class="scene-controls">
+          <div class="growth-display">
+            <span>Canopy</span>
+            <div class="growth-track" aria-hidden="true"><div id="growth-fill"></div></div>
+            <span id="growth-value">—</span>
+          </div>
+          <button class="visualizer-toggle" id="visualizer-toggle" type="button" aria-pressed="false" aria-controls="visualizer-signals">
+            <svg class="icon" aria-hidden="true"><use href="#i-spark"/></svg>Visualizer
+          </button>
+          <div class="visualizer-signals" id="visualizer-signals" hidden>
+            <label for="ambient-signal">Ambient</label>
+            <meter id="ambient-signal" min="0" max="1" value="0"></meter>
+            <label for="auriscape-signal">Auriscape</label>
+            <meter id="auriscape-signal" min="0" max="1" value="0"></meter>
+          </div>
         </div>
       </div>
       <div class="scene-bottom">

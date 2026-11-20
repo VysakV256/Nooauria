@@ -72,16 +72,43 @@ button, a, input { -webkit-tap-highlight-color: transparent; }
 .intro p { max-width: 260px; margin: 0 0 4px; font-size: 1rem; line-height: 1.53; color: var(--muted); text-wrap: pretty; }
 
 .scene { --canopy: .9; position: relative; isolation: isolate; height: clamp(365px, 32vw, 444px); border: 1px solid #354234; border-radius: 15px; overflow: hidden; background: #17251a; }
-.scene-layer, .scene-shade, #field-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.scene[data-visualizer="true"] { height: clamp(420px, 68vh, 660px); border-color: #64744b; }
+.scene-layer, .scene-shade, #auriscape-canvas, #field-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .scene-layer { background-size: cover; background-position: center 54%; }
-.city-layer { z-index: -4; background-color: #172726; background-image: url("./city.webp"); }
-.forest-layer { z-index: -3; opacity: var(--canopy); background-color: #293c20; background-image: url("./forest.webp"); }
+.city-layer { z-index: -5; background-color: #172726; background-image: url("./city.webp"); }
+.forest-layer { z-index: -4; opacity: var(--canopy); background-color: #293c20; background-image: url("./forest.webp"); }
+#auriscape-canvas { z-index: -3; pointer-events: none; }
 .scene-shade { z-index: -2; background: linear-gradient(0deg, rgba(3, 8, 4, .91), rgba(4, 10, 5, .62) 19%, transparent 53%), linear-gradient(180deg, rgba(4, 10, 5, .64), transparent 27%), linear-gradient(90deg, rgba(4, 10, 5, .29), transparent 40%); }
 #field-canvas { z-index: -1; pointer-events: none; }
 .scene-top, .scene-bottom { position: absolute; left: 29px; right: 29px; display: flex; justify-content: space-between; }
 .scene-top { top: 25px; gap: 8px; align-items: flex-start; }
-.field-status, .growth-display { display: flex; align-items: center; gap: 9px; border: 1px solid #d8eac845; border-radius: 6px; background: #10190ed1; min-height: 35px; color: #e5ecd9; padding: 0 11px; }
+.scene-controls { position: relative; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.field-status, .growth-display, .visualizer-toggle { display: flex; align-items: center; gap: 9px; border: 1px solid #d8eac845; border-radius: 6px; background: #10190ed1; min-height: 35px; color: #e5ecd9; padding: 0 11px; white-space: nowrap; }
 .field-status, .growth-display, .scene-kicker, .scene-stats, .keyboard-hint { font-family: var(--mono); font-size: .79rem; line-height: 1; letter-spacing: .06em; text-transform: uppercase; }
+.visualizer-toggle { font-size: .875rem; font-weight: 600; }
+.visualizer-toggle .icon { width: 15px; height: 15px; }
+.visualizer-toggle:hover, .visualizer-toggle[aria-pressed="true"] { color: var(--lime); background: #26331cf0; border-color: #a1b7669e; }
+.visualizer-signals {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  display: grid;
+  grid-template-columns: 1fr 64px;
+  align-items: center;
+  gap: 9px 13px;
+  padding: 10px 11px;
+  border: 1px solid #d8eac845;
+  border-radius: 6px;
+  background: #10190ee8;
+  color: var(--ink);
+  font: .81rem/1.2 var(--mono);
+}
+.visualizer-signals meter { width: 100%; height: 6px; border: 0; border-radius: 3px; background: #455241; }
+.visualizer-signals meter::-webkit-meter-bar { border: 0; background: #455241; box-shadow: none; }
+.visualizer-signals meter::-webkit-meter-optimum-value { border-radius: 3px; background: var(--signal); }
+.visualizer-signals meter::-moz-meter-bar { border-radius: 3px; background: var(--signal); }
+#ambient-signal { --signal: #83ddbc; }
+#auriscape-signal { --signal: #e4ec90; }
 .status-light { width: 7px; height: 7px; border-radius: 50%; background: #b3c598; }
 .scene[data-playing="true"] .status-light { background: var(--lime); box-shadow: 0 0 11px #d8ff74a2; }
 .growth-display { color: #dde9d2; }
@@ -182,6 +209,7 @@ button, a, input { -webkit-tap-highlight-color: transparent; }
   .transport-button { min-height: 42px; min-width: 123px; }
   .growth-track { width: 35px; }
   .field-status, .growth-display { padding-inline: 8px; gap: 6px; font-size: .75rem; }
+  .scene-controls { flex-direction: column; align-items: flex-end; }
   .mode-row { gap: 6px; }
   .mode-switch button { padding-inline: 7px; }
 }

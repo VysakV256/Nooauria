@@ -5,6 +5,7 @@ const MINOR = [0, 2, 3, 5, 7, 8, 10];
 const DORIAN = [0, 2, 3, 5, 7, 9, 10];
 const MAJOR = [0, 2, 4, 5, 7, 9, 11];
 const SILENCE = 0.0001;
+const SILENT_AURISCAPE = Object.freeze({ level: 0, low: 0, mid: 0, high: 0, beat: 0 });
 
 const clamp = (number, min = 0, max = 1) => Math.max(min, Math.min(max, number));
 const midiHz = (note) => 440 * 2 ** ((note - 69) / 12);
@@ -102,6 +103,12 @@ function bandEnergy(spectrum, lowHz, highHz, binHz) {
   return Math.sqrt(square / Math.max(1, end - first));
 }
 
+function waveformLevel(waveform) {
+  let squares = 0;
+  for (const sample of waveform) squares += sample * sample;
+  return Math.sqrt(squares / waveform.length);
+}
+
 function emptyMeters(input = 'city') {
   return { level: 0, low: 0, mid: 0, high: 0, onset: 0, beat: 0, step: 0, growth: 0, running: false, input };
 }
@@ -113,6 +120,7 @@ export class ForestAudio {
     this.volume = 0.72;
     this.running = false;
     this.meters = emptyMeters();
+    this.auriscapeMeters = { ...SILENT_AURISCAPE };
     this.inputRequest = 0;
     this.transportRequest = 0;
     this.voices = new Set();
@@ -140,6 +148,8 @@ export class ForestAudio {
     this.meter.smoothingTimeConstant = 0.63;
     this.waveform = new Float32Array(this.meter.fftSize);
     this.spectrum = new Float32Array(this.meter.frequencyBinCount);
+    this.auriscapeWaveform = new Float32Array(2048);
+    this.auriscapeSpectrum = new Float32Array(this.auriscapeWaveform.length / 2);
     this.meter.connect(this.gain(0)).connect(context.destination);
     this.percussionNoise = createNoise(context, 1.5, 733113);
     this.ambientNoise = createNoise(context, 4.7, 517991, 0.8);
@@ -281,18 +291,24 @@ export class ForestAudio {
     this.transport = this.gain(0);
     this.transport.connect(this.master);
     this.transport.gain.setTargetAtTime(1, this.context.currentTime, 0.04);
+    this.auriscapeAnalyser = this.context.createAnalyser();
+    this.auriscapeAnalyser.fftSize = this.auriscapeWaveform.length;
+    this.auriscapeAnalyser.smoothingTimeConstant = 0.4;
+    this.auriscapeAnalyser.connect(this.transport);
     this.drums = this.gain(0.82);
-    this.drums.connect(this.transport);
+    this.drums.connect(this.auriscapeAnalyser);
     this.basses = this.gain(0.52);
-    this.basses.connect(this.transport);
+    this.basses.connect(this.auriscapeAnalyser);
     this.nature = this.gain(0.75);
-    this.nature.connect(this.transport);
+    this.nature.connect(this.auriscapeAnalyser);
     this.wet = this.context.createConvolver();
     this.wet.buffer = this.impulse;
     const wetGain = this.gain(0.54);
-    this.wet.connect(wetGain).connect(this.transport);
+    this.wet.connect(wetGain).connect(this.auriscapeAnalyser);
 
     this.resetMeters();
+    this.auriscapeMeters = { ...SILENT_AURISCAPE };
+    this.lastAuriscapeLevel = 0;
     this.running = true;
     this.step = 0;
     this.nextTime = this.context.currentTime + 0.11;
@@ -315,12 +331,17 @@ export class ForestAudio {
 
     const now = this.context.currentTime;
     const output = this.transport;
+    const analyser = this.auriscapeAnalyser;
     output.gain.cancelScheduledValues(now);
     output.gain.setTargetAtTime(0, now, 0.012);
     for (const voice of this.voices) voice.stop(now + 0.07);
     this.voices.clear();
     this.transport = null;
-    setTimeout(() => output.disconnect(), 90);
+    this.auriscapeAnalyser = null;
+    setTimeout(() => {
+      analyser.disconnect();
+      output.disconnect();
+    }, 90);
   }
 
   resetMeters() {
@@ -344,6 +365,10 @@ export class ForestAudio {
     };
   }
 
+  getAuriscapeMeters() {
+    return this.running ? { ...this.auriscapeMeters } : SILENT_AURISCAPE;
+  }
+
   getWaveform(target) {
     if (!this.running) return target.fill(128);
 
@@ -358,9 +383,7 @@ export class ForestAudio {
   analyse(now) {
     this.meter.getFloatTimeDomainData(this.waveform);
     this.meter.getFloatFrequencyData(this.spectrum);
-    let squares = 0;
-    for (let index = 0; index < this.waveform.length; index++) squares += this.waveform[index] ** 2;
-    const rawLevel = Math.sqrt(squares / this.waveform.length);
+    const rawLevel = waveformLevel(this.waveform);
     const scale = this.input === 'mic' ? 3.8 : 8.5;
     const raw = clamp(Math.pow(rawLevel * scale, 0.73));
     const binHz = this.context.sampleRate / this.meter.fftSize;
@@ -390,12 +413,33 @@ export class ForestAudio {
     }
   }
 
+  analyseAuriscape() {
+    const analyser = this.auriscapeAnalyser;
+    analyser.getFloatTimeDomainData(this.auriscapeWaveform);
+    analyser.getFloatFrequencyData(this.auriscapeSpectrum);
+    const binHz = this.context.sampleRate / analyser.fftSize;
+    const spectrum = this.auriscapeSpectrum;
+    const level = clamp((waveformLevel(this.auriscapeWaveform) * 3.8) ** 0.73);
+    const low = clamp(Math.sqrt(bandEnergy(spectrum, 35, 280, binHz)) * 3.8);
+    const mid = clamp(Math.sqrt(bandEnergy(spectrum, 280, 2300, binHz)) * 4.4);
+    const high = clamp(Math.sqrt(bandEnergy(spectrum, 2300, 11000, binHz)) * 6.6);
+    const beat = clamp((level - this.lastAuriscapeLevel) * 4.4);
+    this.lastAuriscapeLevel = level;
+    const meters = this.auriscapeMeters;
+    meters.level += (level - meters.level) * (level > meters.level ? 0.46 : 0.16);
+    meters.low += (low - meters.low) * 0.32;
+    meters.mid += (mid - meters.mid) * 0.24;
+    meters.high += (high - meters.high) * 0.26;
+    meters.beat = Math.max(beat, meters.beat * 0.62);
+  }
+
   tick() {
     if (!this.running) return;
     const now = this.context.currentTime;
     if (this.nextTime < now - 0.1) this.nextTime = now + 0.025;
     if (now >= this.nextListen) {
       this.analyse(now);
+      this.analyseAuriscape();
       this.nextListen = now + 0.035;
     }
 

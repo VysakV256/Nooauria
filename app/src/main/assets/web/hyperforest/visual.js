@@ -1,6 +1,15 @@
 const clamp = (value, low = 0, high = 1) => Math.max(low, Math.min(high, value));
 const lime = '213, 246, 115';
 const gold = '244, 198, 103';
+const sage = '131, 221, 188';
+const amber = '240, 204, 114';
+const bands = ['low', 'mid', 'high'];
+const nearSilence = value => value < 0.004;
+
+const meter = (signal, key) => {
+  const value = signal?.[key];
+  return Number.isFinite(value) ? clamp(value) : 0;
+};
 
 function randomGenerator(seed) {
   return () => {
@@ -56,6 +65,9 @@ export function createForestVisualizer(canvas, { waveformPosition = 0.84, showWa
   let smoothGrowth = 0.1;
   let smoothEnergy = 0;
   let pulse = 0;
+  let fieldTime = 0;
+  const ambient = new Float32Array(4);
+  const auriscape = new Float32Array(4);
   const state = {
     growth: 0.1,
     energy: 0,
@@ -63,6 +75,10 @@ export function createForestVisualizer(canvas, { waveformPosition = 0.84, showWa
     playing: false,
     mode: 'forest',
     waveform: null,
+    ambient: null,
+    auriscape: null,
+    immersive: false,
+    fallback: false,
   };
 
   function resize() {
@@ -195,6 +211,112 @@ export function createForestVisualizer(canvas, { waveformPosition = 0.84, showWa
     context.stroke();
   }
 
+  function drawHaze(x, y, radius, color, opacity) {
+    const haze = context.createRadialGradient(x, y, 0, x, y, radius);
+    haze.addColorStop(0, `rgba(${color}, ${opacity})`);
+    haze.addColorStop(0.45, `rgba(${color}, ${opacity * 0.48})`);
+    haze.addColorStop(1, `rgba(${color}, 0)`);
+    context.fillStyle = haze;
+    context.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+  }
+
+  function drawAmbientContours(time, immersive, hyper) {
+    const [low, mid, high, level] = ambient;
+    const strength = clamp(level * 1.45 + low * 0.34 + mid * 0.33 + high * 0.44);
+    if (strength < 0.012) return;
+
+    const scale = immersive ? 1 : 0.46;
+    const drift = Math.sin(time * (0.35 + high * 0.42)) * height * 0.038;
+    const spread = 0.045 + low * 0.039 + smoothGrowth * 0.023;
+    drawHaze(width * (0.20 + mid * 0.12), height * 0.50 + drift,
+      Math.min(width, height) * (0.75 + low * 0.36), sage, strength * scale * (0.15 + low * 0.14));
+
+    const trace = context.createLinearGradient(0, height * 0.2, width * 0.78, height * 0.72);
+    trace.addColorStop(0, `rgba(${sage}, 0)`);
+    trace.addColorStop(0.24, `rgba(${sage}, 0.68)`);
+    trace.addColorStop(0.58, `rgba(${sage}, 0.55)`);
+    trace.addColorStop(1, `rgba(${sage}, 0)`);
+    context.strokeStyle = trace;
+    context.lineWidth = 0.8 + high * 0.7;
+
+    const count = immersive ? (hyper ? 11 : 8) : 4;
+    for (let index = 0; index < count; index += 1) {
+      const shelf = index - (count - 1) * 0.5;
+      const rise = Math.sin(time * 0.72 - shelf * 0.46) * (0.024 + mid * 0.073) * height;
+      const y = height * (0.5 + shelf * spread) + drift;
+      context.globalAlpha = scale * strength * (0.53 - Math.abs(shelf) * 0.031);
+      context.beginPath();
+      context.moveTo(-width * 0.09, y - height * 0.27);
+      context.bezierCurveTo(width * 0.12, y - height * (0.24 + low * 0.10),
+        width * (0.34 + high * 0.20), y + rise, width * 0.47, y + height * 0.09 + rise);
+      context.bezierCurveTo(width * 0.60, y + height * 0.14 + rise,
+        width * 0.72, y + height * (0.07 + mid * 0.11), width * 0.84, y + height * 0.13);
+      context.stroke();
+    }
+  }
+
+  function drawAuriscapeContours(time, immersive, hyper) {
+    const [low, mid, high, beat] = auriscape;
+    const strength = clamp(low * 0.84 + mid * 0.52 + high * 0.49 + beat * 0.66);
+    if (strength < 0.012) return;
+
+    const scale = immersive ? 1 : 0.48;
+    const x = width * (0.69 + Math.sin(time * 0.37) * 0.028);
+    const y = height * (0.61 - mid * 0.11);
+    const size = Math.min(width, height);
+    const breadth = Math.min(width * 0.55, height * 0.97) * (0.71 + low * 0.29 + beat * 0.19);
+    context.globalAlpha = 1;
+    drawHaze(x, y, size * (0.69 + low * 0.20), amber, scale * strength * (0.085 + beat * 0.13));
+
+    const trace = context.createLinearGradient(x - breadth, y + height * 0.19, x + breadth, y);
+    trace.addColorStop(0, `rgba(${amber}, 0)`);
+    trace.addColorStop(0.32, `rgba(${amber}, 0.42)`);
+    trace.addColorStop(0.66, `rgba(${gold}, 0.86)`);
+    trace.addColorStop(1, `rgba(${gold}, 0)`);
+    context.strokeStyle = trace;
+
+    const count = immersive ? (hyper ? 8 : 6) : 3;
+    for (let index = 0; index < count; index += 1) {
+      const distance = index / count;
+      const radius = 0.44 + distance * 0.69;
+      const angle = time * (0.36 + high * 0.17) - distance * 1.15;
+      context.globalAlpha = scale * strength * (0.61 - distance * 0.24 + beat * 0.16);
+      context.lineWidth = 0.9 + beat * (1 - distance) * 1.5;
+      context.beginPath();
+      context.ellipse(x, y, Math.max(1, breadth * radius),
+        Math.max(1, size * radius * (0.28 + mid * 0.13)), -0.34 + Math.sin(angle) * 0.09,
+        Math.PI * (0.78 + Math.sin(angle) * 0.09),
+        Math.PI * (2.06 + Math.cos(angle) * 0.12 + high * 0.17));
+      context.stroke();
+    }
+  }
+
+  function drawFallback(interval, reduced, hyper) {
+    const response = 1 - Math.exp(-interval / (reduced ? 480 : 160));
+    const room = state.playing ? state.ambient : null;
+    const generated = state.playing ? state.auriscape : null;
+    for (let index = 0; index < bands.length; index += 1) {
+      const band = bands[index];
+      ambient[index] += (meter(room, band) - ambient[index]) * response;
+      auriscape[index] += (meter(generated, band) - auriscape[index]) * response;
+    }
+    const level = meter(room, 'level') * 0.76 + meter(room, 'onset') * 0.24;
+    ambient[3] += (level - ambient[3]) * response;
+    const beat = meter(generated, 'beat');
+    auriscape[3] = reduced
+      ? auriscape[3] + (beat * 0.28 - auriscape[3]) * response
+      : Math.max(beat, auriscape[3] * Math.exp(-interval / 160));
+    if (state.playing && !reduced) fieldTime += interval / 1000;
+    if (ambient.every(nearSilence) && auriscape.every(nearSilence)) return;
+    const time = reduced ? 0 : fieldTime;
+
+    context.save();
+    context.lineCap = 'round';
+    drawAmbientContours(time, state.immersive, hyper);
+    drawAuriscapeContours(time, state.immersive, hyper);
+    context.restore();
+  }
+
   function render(timestamp) {
     frame = requestAnimationFrame(render);
     if (!width || !height) return;
@@ -213,6 +335,7 @@ export function createForestVisualizer(canvas, { waveformPosition = 0.84, showWa
     const hyper = state.mode === 'hyperforest';
 
     context.clearRect(0, 0, width, height);
+    if (state.fallback) drawFallback(interval, reduced, hyper);
     drawRoots(time, hyper);
     drawSpores(time, hyper);
     drawWave(time, hyper);
