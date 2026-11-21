@@ -3,100 +3,89 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#051a1b">
+  <meta name="theme-color" content="#07100c">
   <meta name="description" content="Nooauria is a living audio ecology of evolutionary force amplifiers, spectral organisms and exursive generative music.">
   <title>Nooauria — Hyperacoustic Force Amplifiers</title>
   <style>
-    :root {
-      color-scheme: dark;
-      --habitat-bg: #051a1b;
-      --habitat-panel: #092626;
-      --habitat-ink: #e8fcf7;
-      --habitat-muted: #a5cfca;
-      --habitat-turquoise: #59ebdd;
-      --habitat-turquoise-rgb: 89, 235, 221;
-      --habitat-cyan: #7fdfed;
-      --habitat-cyan-rgb: 127, 223, 237;
-    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body, html { width: 100%; height: 100%; overflow: hidden; background-color: var(--habitat-bg); font-family: sans-serif; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background-color: #07100C; font-family: sans-serif; }
     #canvas { width: 100%; height: 100%; display: block; }
     #overlay {
       position: absolute; top: 34px; right: 34px;
-      color: rgba(232,252,247,0.72); font-size: 10px;
+      color: rgba(241,243,220,0.72); font-size: 10px;
       letter-spacing: 1.8px; text-transform: uppercase;
-      pointer-events: none; text-shadow: 0 0 12px rgba(var(--habitat-cyan-rgb),0.35);
+      pointer-events: none; text-shadow: 0 0 12px rgba(103,232,194,0.35);
     }
-    #brand { position: absolute; top: 28px; left: 28px; color: var(--habitat-ink); }
+    #brand { position: absolute; top: 28px; left: 28px; color: #f1f3dc; }
     #brand strong { display:block; font: 800 clamp(22px,3vw,36px)/1 sans-serif; letter-spacing:.2em; }
-    #brand span { display:block; margin-top:8px; color:var(--habitat-muted); font-size:10px; letter-spacing:.15em; text-transform:uppercase; }
-    #bio-mark { display:inline-block; width:9px; height:9px; margin-right:8px; border-radius:50%; background:var(--habitat-turquoise); box-shadow:0 0 18px var(--habitat-turquoise); }
-    #maximize-shader { position:absolute; top:58px; right:28px; z-index:4; padding:10px 13px; color:var(--habitat-cyan); background:rgba(9,38,38,.72); border:1px solid rgba(var(--habitat-cyan-rgb),.28); border-radius:16px 7px 16px 7px; backdrop-filter:blur(12px); }
+    #brand span { display:block; margin-top:8px; color:#93a89b; font-size:10px; letter-spacing:.15em; text-transform:uppercase; }
+    #bio-mark { display:inline-block; width:9px; height:9px; margin-right:8px; border-radius:50%; background:#b8f35a; box-shadow:0 0 18px #b8f35a; }
+    #maximize-shader { position:absolute; top:58px; right:28px; z-index:4; padding:10px 13px; color:#67e8c2; background:rgba(16,29,23,.72); border:1px solid rgba(103,232,194,.28); border-radius:16px 7px 16px 7px; backdrop-filter:blur(12px); }
     body.shader-maximized #control-dock, body.shader-maximized #brand, body.shader-maximized #overlay { opacity:0; pointer-events:none; }
     body.shader-maximized #maximize-shader { top:18px; right:18px; opacity:.55; }
     body.shader-maximized #awaken { top:18px; }
     #control-dock {
       position:absolute; left:50%; bottom:24px; transform:translateX(-50%); width:min(960px,calc(100% - 32px));
-      padding:18px; color:var(--habitat-ink); background:rgba(9,38,38,.86); border:1px solid rgba(var(--habitat-cyan-rgb),.22);
+      padding:18px; color:#f1f3dc; background:rgba(16,29,23,.86); border:1px solid rgba(103,232,194,.22);
       border-radius:30px 14px 30px 14px; backdrop-filter:blur(20px); box-shadow:0 22px 70px rgba(0,0,0,.4);
     }
     .dock-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 16px; margin-bottom:14px; }
     .dock-actions { display:flex; align-items:center; gap:12px; }
-    #hyperforest-link { padding:10px 12px; color:var(--habitat-turquoise); background:rgba(var(--habitat-turquoise-rgb),.08); border:1px solid rgba(var(--habitat-turquoise-rgb),.42); border-radius:16px 7px 16px 7px; font:700 11px/1 sans-serif; text-decoration:none; white-space:nowrap; }
-    #hyperforest-link:hover { background:var(--habitat-turquoise); color:var(--habitat-bg); }
-    #hyperforest-link:focus-visible { outline:2px solid #b4fff8; outline-offset:3px; }
-    .eyebrow { color:var(--habitat-cyan); font-size:10px; letter-spacing:.17em; text-transform:uppercase; }
-    .pulse { color:var(--habitat-muted); font-size:11px; }
+    #hyperforest-link { padding:10px 12px; color:#b8f35a; background:rgba(184,243,90,.08); border:1px solid rgba(184,243,90,.42); border-radius:16px 7px 16px 7px; font:700 11px/1 sans-serif; text-decoration:none; white-space:nowrap; }
+    #hyperforest-link:hover { background:#b8f35a; color:#07100c; }
+    #hyperforest-link:focus-visible { outline:2px solid #f3d58b; outline-offset:3px; }
+    .eyebrow { color:#67e8c2; font-size:10px; letter-spacing:.17em; text-transform:uppercase; }
+    .pulse { color:#93a89b; font-size:11px; }
     .controls { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:14px; align-items:center; }
     button { border:0; font:700 11px/1 sans-serif; letter-spacing:.08em; cursor:pointer; }
-    #awaken { position:absolute; top:58px; right:190px; z-index:4; display:flex; align-items:center; justify-content:center; gap:9px; min-width:156px; min-height:44px; padding:15px 18px; color:var(--habitat-bg); background:var(--habitat-turquoise); border-radius:22px 10px 22px 10px; box-shadow:0 6px 24px rgba(0,0,0,.25); }
+    #awaken { position:absolute; top:58px; right:190px; z-index:4; display:flex; align-items:center; justify-content:center; gap:9px; min-width:156px; min-height:44px; padding:15px 18px; color:#07100c; background:#b8f35a; border-radius:22px 10px 22px 10px; box-shadow:0 6px 24px rgba(0,0,0,.25); }
     #awaken.live { background:#ff8066; }
     #awaken .rest-label, #awaken.live .emerge-label { opacity:.5; }
     #awaken.live .rest-label { opacity:1; }
     #awaken .playback-divider { opacity:.35; }
-    #awaken:focus-visible { outline:2px solid var(--habitat-ink); outline-offset:4px; }
+    #awaken:focus-visible { outline:2px solid #f1f3dc; outline-offset:4px; }
     .species { display:flex; gap:7px; overflow:auto; scrollbar-width:none; }
-    .species button { padding:12px 14px; white-space:nowrap; color:var(--habitat-muted); background:rgba(255,255,255,.035); border:1px solid rgba(165,207,202,.2); border-radius:16px; }
-    .species button.active { color:var(--habitat-bg); background:var(--habitat-cyan); border-color:var(--habitat-cyan); }
-    .tempo { display:flex; flex-direction:column; min-width:120px; gap:6px; color:var(--habitat-muted); font-size:9px; letter-spacing:.12em; text-transform:uppercase; }
-    input[type=range] { width:120px; accent-color:var(--habitat-turquoise); }
-    .spectral-lab { display:grid; grid-template-columns:1.35fr repeat(3,1fr) auto; gap:12px; align-items:end; margin-top:14px; padding-top:14px; border-top:1px solid rgba(165,207,202,.14); }
+    .species button { padding:12px 14px; white-space:nowrap; color:#93a89b; background:rgba(255,255,255,.035); border:1px solid rgba(147,168,155,.2); border-radius:16px; }
+    .species button.active { color:#07100c; background:#67e8c2; border-color:#67e8c2; }
+    .tempo { display:flex; flex-direction:column; min-width:120px; gap:6px; color:#93a89b; font-size:9px; letter-spacing:.12em; text-transform:uppercase; }
+    input[type=range] { width:120px; accent-color:#b8f35a; }
+    .spectral-lab { display:grid; grid-template-columns:1.35fr repeat(3,1fr) auto; gap:12px; align-items:end; margin-top:14px; padding-top:14px; border-top:1px solid rgba(147,168,155,.14); }
     .spectrum-types { display:flex; gap:6px; overflow:auto; scrollbar-width:none; }
-    .spectrum-types button { padding:10px 12px; color:var(--habitat-muted); background:transparent; border:1px solid rgba(165,207,202,.18); border-radius:14px 7px 14px 7px; white-space:nowrap; }
-    .spectrum-types button.active { color:var(--habitat-bg); background:#b4fff8; border-color:#b4fff8; }
-    .spectral-lab label { display:flex; flex-direction:column; gap:7px; color:var(--habitat-muted); font-size:8px; letter-spacing:.13em; text-transform:uppercase; }
+    .spectrum-types button { padding:10px 12px; color:#93a89b; background:transparent; border:1px solid rgba(147,168,155,.18); border-radius:14px 7px 14px 7px; white-space:nowrap; }
+    .spectrum-types button.active { color:#07100c; background:#f3d58b; border-color:#f3d58b; }
+    .spectral-lab label { display:flex; flex-direction:column; gap:7px; color:#93a89b; font-size:8px; letter-spacing:.13em; text-transform:uppercase; }
     .spectral-lab input { width:100%; }
-    #evolve { padding:13px 15px; color:var(--habitat-cyan); background:rgba(var(--habitat-cyan-rgb),.08); border:1px solid rgba(var(--habitat-cyan-rgb),.35); border-radius:18px 8px 18px 8px; }
-    #evolve.active { color:var(--habitat-bg); background:var(--habitat-cyan); box-shadow:0 0 26px rgba(var(--habitat-cyan-rgb),.25); }
+    #evolve { padding:13px 15px; color:#67e8c2; background:rgba(103,232,194,.08); border:1px solid rgba(103,232,194,.35); border-radius:18px 8px 18px 8px; }
+    #evolve.active { color:#07100c; background:#67e8c2; box-shadow:0 0 26px rgba(103,232,194,.25); }
     .amplifier-meta { display:flex; align-items:end; justify-content:space-between; gap:20px; margin-bottom:12px; }
-    .amplifier-meta strong { display:block; margin-bottom:4px; color:var(--habitat-ink); font-size:15px; letter-spacing:.04em; }
-    .amplifier-meta p { margin:0; color:var(--habitat-muted); font-size:10px; line-height:1.4; }
-    .generation { flex:0 0 auto; color:var(--habitat-turquoise); font:700 10px/1 sans-serif; letter-spacing:.13em; text-transform:uppercase; }
-    .arrangement-status { display:flex; align-items:center; gap:12px; margin-bottom:12px; color:var(--habitat-muted); font:700 9px/1.3 sans-serif; letter-spacing:.08em; }
+    .amplifier-meta strong { display:block; margin-bottom:4px; color:#f1f3dc; font-size:15px; letter-spacing:.04em; }
+    .amplifier-meta p { margin:0; color:#93a89b; font-size:10px; line-height:1.4; }
+    .generation { flex:0 0 auto; color:#b8f35a; font:700 10px/1 sans-serif; letter-spacing:.13em; text-transform:uppercase; }
+    .arrangement-status { display:flex; align-items:center; gap:12px; margin-bottom:12px; color:#93a89b; font:700 9px/1.3 sans-serif; letter-spacing:.08em; }
     #arrangement-readout { white-space:nowrap; }
-    #arrangement-progress { flex:1; min-width:0; height:3px; accent-color:var(--habitat-cyan); }
+    #arrangement-progress { flex:1; min-width:0; height:3px; accent-color:#67e8c2; }
     .amplifier-rail { display:flex; flex-wrap:wrap; gap:7px; margin:0 -2px 14px; padding:2px; }
-    .amplifier-rail button { padding:10px 13px; color:var(--habitat-muted); background:rgba(255,255,255,.025); border:1px solid rgba(165,207,202,.16); border-radius:18px 8px 18px 8px; white-space:nowrap; }
-    .amplifier-rail button.active { color:var(--habitat-bg); background:var(--habitat-turquoise); border-color:var(--habitat-turquoise); }
-    .disclaimer { margin:10px 2px 0; color:rgba(165,207,202,.65); font-size:8px; letter-spacing:.05em; }
-    .resonance-lab { margin-top:14px; padding:14px; background:linear-gradient(135deg,rgba(var(--habitat-cyan-rgb),.055),rgba(var(--habitat-turquoise-rgb),.025)); border:1px solid rgba(var(--habitat-cyan-rgb),.16); border-radius:24px 10px 24px 10px; }
-    .resonance-lab summary { color:var(--habitat-cyan); font:700 10px/1 sans-serif; letter-spacing:.15em; text-transform:uppercase; cursor:pointer; }
+    .amplifier-rail button { padding:10px 13px; color:#93a89b; background:rgba(255,255,255,.025); border:1px solid rgba(147,168,155,.16); border-radius:18px 8px 18px 8px; white-space:nowrap; }
+    .amplifier-rail button.active { color:#07100c; background:#b8f35a; border-color:#b8f35a; }
+    .disclaimer { margin:10px 2px 0; color:rgba(147,168,155,.65); font-size:8px; letter-spacing:.05em; }
+    .resonance-lab { margin-top:14px; padding:14px; background:linear-gradient(135deg,rgba(103,232,194,.055),rgba(184,243,90,.025)); border:1px solid rgba(103,232,194,.16); border-radius:24px 10px 24px 10px; }
+    .resonance-lab summary { color:#67e8c2; font:700 10px/1 sans-serif; letter-spacing:.15em; text-transform:uppercase; cursor:pointer; }
     .resonance-intro { display:flex; justify-content:space-between; gap:20px; margin-top:13px; }
-    .resonance-intro strong { display:block; color:var(--habitat-ink); font-size:14px; }
-    .resonance-intro p { max-width:540px; margin-top:4px; color:var(--habitat-muted); font-size:9px; line-height:1.45; }
-    .ecology-state { color:var(--habitat-turquoise); font-size:9px; letter-spacing:.13em; text-transform:uppercase; white-space:nowrap; }
+    .resonance-intro strong { display:block; color:#f1f3dc; font-size:14px; }
+    .resonance-intro p { max-width:540px; margin-top:4px; color:#93a89b; font-size:9px; line-height:1.45; }
+    .ecology-state { color:#b8f35a; font-size:9px; letter-spacing:.13em; text-transform:uppercase; white-space:nowrap; }
     .lifeway-rail { display:flex; gap:8px; margin-top:13px; overflow:auto; scrollbar-width:none; }
-    .lifeway-rail button { min-width:148px; padding:12px; color:var(--habitat-muted); text-align:left; background:rgba(5,26,27,.42); border:1px solid rgba(165,207,202,.18); border-radius:20px 8px 20px 8px; white-space:normal; }
-    .lifeway-rail button span { display:block; margin-top:5px; color:rgba(165,207,202,.62); font-size:8px; font-weight:400; letter-spacing:.02em; line-height:1.3; }
-    .lifeway-rail button.active { color:var(--habitat-bg); background:var(--habitat-turquoise); border-color:var(--habitat-turquoise); }
-    .lifeway-rail button.active span { color:rgba(5,26,27,.68); }
+    .lifeway-rail button { min-width:148px; padding:12px; color:#93a89b; text-align:left; background:rgba(7,16,12,.42); border:1px solid rgba(147,168,155,.18); border-radius:20px 8px 20px 8px; white-space:normal; }
+    .lifeway-rail button span { display:block; margin-top:5px; color:rgba(147,168,155,.62); font-size:8px; font-weight:400; letter-spacing:.02em; line-height:1.3; }
+    .lifeway-rail button.active { color:#07100c; background:#b8f35a; border-color:#b8f35a; }
+    .lifeway-rail button.active span { color:rgba(7,16,12,.68); }
     .frequency-grid { display:grid; grid-template-columns:repeat(4,1fr) auto; gap:12px; align-items:end; margin-top:12px; }
-    .frequency-grid label { display:flex; flex-direction:column; gap:7px; color:var(--habitat-muted); font-size:8px; letter-spacing:.12em; text-transform:uppercase; }
+    .frequency-grid label { display:flex; flex-direction:column; gap:7px; color:#93a89b; font-size:8px; letter-spacing:.12em; text-transform:uppercase; }
     .frequency-grid input { width:100%; }
-    .frequency-grid select { min-height:34px; padding:0 8px; color:var(--habitat-ink); background:var(--habitat-panel); border:1px solid rgba(165,207,202,.22); border-radius:10px; }
+    .frequency-grid select { min-height:34px; padding:0 8px; color:#f1f3dc; background:#101d17; border:1px solid rgba(147,168,155,.22); border-radius:10px; }
     .tone-toggles { display:flex; gap:6px; }
-    .tone-toggles button { padding:11px 12px; color:var(--habitat-muted); background:rgba(255,255,255,.025); border:1px solid rgba(165,207,202,.2); border-radius:14px 7px 14px 7px; }
-    .tone-toggles button.active { color:var(--habitat-bg); background:var(--habitat-cyan); border-color:var(--habitat-cyan); }
+    .tone-toggles button { padding:11px 12px; color:#93a89b; background:rgba(255,255,255,.025); border:1px solid rgba(147,168,155,.2); border-radius:14px 7px 14px 7px; }
+    .tone-toggles button.active { color:#07100c; background:#67e8c2; border-color:#67e8c2; }
     @media(max-width:680px){
       #brand{top:20px;left:20px} #overlay{top:72px;left:20px;right:auto} #maximize-shader{top:96px;right:20px} #awaken{top:96px;left:20px;right:auto}
       #control-dock{bottom:10px;padding:14px;max-height:min(76vh,calc(100dvh - 160px));overflow:auto}.controls{grid-template-columns:1fr}.species{grid-column:1/-1;grid-row:1}.tempo{display:none}.spectral-lab{grid-template-columns:1fr 1fr}.spectrum-types{grid-column:1/-1}.spectral-lab label:nth-of-type(3){display:none}#evolve{align-self:stretch}.amplifier-meta{align-items:start}.amplifier-meta p{max-width:260px}.frequency-grid{grid-template-columns:1fr 1fr}.tone-toggles{grid-column:1/-1}.frequency-grid label:nth-of-type(3){grid-column:1/-1}
@@ -105,26 +94,26 @@
       #awaken{min-width:136px;gap:6px;padding:15px 12px;font-size:10px} #maximize-shader{padding:12px 10px;font-size:9px}
     }
     #control-dock { max-height:calc(100dvh - 150px); overflow:auto; }
-    .track-composer { margin-bottom:14px; padding:14px; border:1px solid #285357; border-radius:18px; background:rgba(var(--habitat-cyan-rgb),.04); }
-    .track-composer summary { color:var(--habitat-cyan); cursor:pointer; font-size:11px; letter-spacing:.12em; }
-    .track-composer p { color:var(--habitat-muted); font-size:11px; line-height:1.5; margin:10px 0; }
+    .track-composer { margin-bottom:14px; padding:14px; border:1px solid #355348; border-radius:18px; background:rgba(103,232,194,.04); }
+    .track-composer summary { color:#67e8c2; cursor:pointer; font-size:11px; letter-spacing:.12em; }
+    .track-composer p { color:#93a89b; font-size:11px; line-height:1.5; margin:10px 0; }
     .track-pool { display:flex; flex-wrap:wrap; gap:8px 14px; margin:12px 0; }
-    .track-pool label { color:#bedcd9; font-size:11px; display:flex; align-items:center; gap:5px; }
+    .track-pool label { color:#d2e5d9; font-size:11px; display:flex; align-items:center; gap:5px; }
     .track-options { display:flex; flex-wrap:wrap; align-items:center; gap:12px; font-size:11px; }
-    .track-options input { width:72px; padding:8px; background:var(--habitat-panel); color:var(--habitat-ink); border:1px solid #285357; border-radius:8px; }
-    .track-options select { padding:8px; background:var(--habitat-panel); color:var(--habitat-ink); border:1px solid #285357; border-radius:8px; }
-    .track-options button { padding:12px; border-radius:12px; background:var(--habitat-cyan); color:var(--habitat-bg); }
-    #track-status { display:block; margin-top:12px; color:var(--habitat-turquoise); font-size:11px; line-height:1.5; }
-    #track-progress { width:100%; height:5px; accent-color:var(--habitat-cyan); }
-    button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline:2px solid #b4fff8; outline-offset:3px; }
-    .focus-lens { margin:0 0 14px; padding:12px; border:1px solid rgba(var(--habitat-cyan-rgb),.3); border-radius:16px; }
+    .track-options input { width:72px; padding:8px; background:#101d17; color:#f1f3dc; border:1px solid #355348; border-radius:8px; }
+    .track-options select { padding:8px; background:#101d17; color:#f1f3dc; border:1px solid #355348; border-radius:8px; }
+    .track-options button { padding:12px; border-radius:12px; background:#67e8c2; color:#07100c; }
+    #track-status { display:block; margin-top:12px; color:#b8f35a; font-size:11px; line-height:1.5; }
+    #track-progress { width:100%; height:5px; accent-color:#67e8c2; }
+    button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline:2px solid #f3d58b; outline-offset:3px; }
+    .focus-lens { margin:0 0 14px; padding:12px; border:1px solid rgba(103,232,194,.3); border-radius:16px; }
     .focus-lens[hidden] { display:none; }
-    .focus-lens legend { color:var(--habitat-cyan); padding:0 7px; font-size:10px; letter-spacing:.1em; }
-    .focus-lens p { color:var(--habitat-muted); font-size:10px; line-height:1.5; margin-bottom:10px; }
+    .focus-lens legend { color:#67e8c2; padding:0 7px; font-size:10px; letter-spacing:.1em; }
+    .focus-lens p { color:#93a89b; font-size:10px; line-height:1.5; margin-bottom:10px; }
     .lens-controls { display:flex; flex-wrap:wrap; gap:18px; }
-    .lens-controls label { flex:1; min-width:140px; color:var(--habitat-muted); font-size:10px; }
-    .lens-controls input { display:block; width:100%; margin-top:7px; accent-color:var(--habitat-cyan); }
-    #lens-phase { display:block; margin-top:12px; color:var(--habitat-turquoise); font-size:10px; letter-spacing:.08em; }
+    .lens-controls label { flex:1; min-width:140px; color:#93a89b; font-size:10px; }
+    .lens-controls input { display:block; width:100%; margin-top:7px; accent-color:#67e8c2; }
+    #lens-phase { display:block; margin-top:12px; color:#b8f35a; font-size:10px; letter-spacing:.08em; }
   </style>
 </head>
 <body>
@@ -365,9 +354,9 @@
       harmonicVol: 0.0,
       // Visualizer State
       geometry: 'COSMIC_TUNNEL',
-      primaryColor: '#59EBDD',
-      secondaryColor: '#7FDFED',
-      accentColor: '#B4FFF8',
+      primaryColor: '#B8F35A',
+      secondaryColor: '#67E8C2',
+      accentColor: '#FF8066',
       audioSensitivity: 1.0,
       speed: 1.0,
       particleDensity: 300,
@@ -1963,8 +1952,8 @@
     const ecologyState = document.getElementById('ecology-state');
     const spectralProfiles = {
       LIQUID:   { waveShape:'sine', filterCutoff:.62, resonance:.28, primaryColor:'#48C8FF', secondaryColor:'#67F0E8' },
-      CRYSTAL:  { waveShape:'triangle', filterCutoff:1, resonance:.22, primaryColor:'#7FDFED', secondaryColor:'#E8FCF7' },
-      CELLULAR: { waveShape:'square',   filterCutoff:.56, resonance:.62, primaryColor:'#f3d58b', secondaryColor:'#59EBDD' },
+      CRYSTAL:  { waveShape:'triangle', filterCutoff:1, resonance:.22, primaryColor:'#67e8c2', secondaryColor:'#f1f3dc' },
+      CELLULAR: { waveShape:'square',   filterCutoff:.56, resonance:.62, primaryColor:'#f3d58b', secondaryColor:'#b8f35a' },
       FERAL:    { waveShape:'sawtooth', filterCutoff:.72, resonance:.78, primaryColor:'#ff8066', secondaryColor:'#7967e8' }
     };
     const amplifierProfiles = {
@@ -2002,7 +1991,7 @@
       const profile = amplifierProfiles[section.foundation];
       // Keep one tempo for the whole track: transitions never replace the sequencer clock.
       Object.assign(state, { amplifierMode:section.foundation, geometry:profile.geometry,
-        primaryColor:profile.primaryColor || '#59EBDD', secondaryColor:profile.secondaryColor || '#7FDFED', accentColor:profile.accentColor || '#B4FFF8',
+        primaryColor:profile.primaryColor || '#B8F35A', secondaryColor:profile.secondaryColor || '#67E8C2', accentColor:profile.accentColor || '#FF8066',
         divergence:profile.divergence, multiplicity:profile.multiplicity,
         coherence:profile.coherence, exursion:profile.exursion,
         biodynamicShader:!['PRISM_BREAKS','VELVET_CIRCUIT','AXIOM_BLOOM'].includes(section.foundation) });
@@ -2085,7 +2074,7 @@
       CORAL_INTELLIGENCE: { carrier:144, beat:6, iso:6, sol:417, binaural:true, isoOn:true, bpm:128, genre:'MELODIC_TECHNO', title:'Coral Intelligence', description:'Three-against-four tidal organisms coordinate into a porous, many-bodied rhythm.', ecology:'polyrhythmic reef awake' },
       NOOSPHERE_BLOOM: { carrier:320, beat:12, iso:12, sol:639, binaural:true, isoOn:false, bpm:138, genre:'PROGRESSIVE_HOUSE', harmonicRatio:1.5, harmonicVol:.045, title:'Noosphere Bloom', description:'A bright harmonic canopy glows behind rapid call-and-response signals, opening a radiant commons of shared imagination.', ecology:'luminous collective bloom', geometry:'AURORA_WAVES', spectrumMode:'CRYSTAL', waveShape:'triangle', filterCutoff:.94, resonance:.28, bloomIntensity:1.22, speed:1.45, mutationDepth:.82, primaryColor:'#D9FF5A', secondaryColor:'#72FFF1', accentColor:'#FFF0A8' },
       SYMBIOTIC_DREAMING: { carrier:108, beat:4, iso:4, sol:852, binaural:true, isoOn:false, bpm:108, genre:'AMBIENT_LOFI', title:'Symbiotic Dreaming', description:'Nested slow and fast organisms cross soft boundaries in a lucid, many-species dream.', ecology:'dream membrane multiplying' },
-      NEURAL_REWILDING: { carrier:333, beat:18, iso:21, sol:741, binaural:true, isoOn:true, bpm:146, genre:'PSYTRANCE', title:'Neural Rewilding', description:'Feral rhythms split, swarm and hybridize at high velocity into an ecstatic wilderness of attention.', ecology:'wild signal hyperdiversity', geometry:'QUANTUM_PARTICLES', spectrumMode:'FERAL', waveShape:'sawtooth', filterCutoff:.82, resonance:.76, bloomIntensity:1.25, speed:1.9, mutationDepth:.96, primaryColor:'#FF8066', secondaryColor:'#59EBDD', accentColor:'#9A70FF' },
+      NEURAL_REWILDING: { carrier:333, beat:18, iso:21, sol:741, binaural:true, isoOn:true, bpm:146, genre:'PSYTRANCE', title:'Neural Rewilding', description:'Feral rhythms split, swarm and hybridize at high velocity into an ecstatic wilderness of attention.', ecology:'wild signal hyperdiversity', geometry:'QUANTUM_PARTICLES', spectrumMode:'FERAL', waveShape:'sawtooth', filterCutoff:.82, resonance:.76, bloomIntensity:1.25, speed:1.9, mutationDepth:.96, primaryColor:'#FF8066', secondaryColor:'#B8F35A', accentColor:'#9A70FF' },
       POSTHUMAN_STILLNESS: { carrier:180, beat:2.5, iso:2.5, sol:432, binaural:true, isoOn:false, bpm:112, genre:'MELODIC_TECHNO', title:'Posthuman Stillness', description:'Slow intelligence holds the center while precise micro-signals flicker across machinic calm.', ecology:'quiet system · active edges' }
     };
     let mutationTimer = null;
@@ -2228,7 +2217,7 @@
         button.classList.add('active');
         state.amplifierMode = button.dataset.amplifier;
         state.biodynamicShader = !['PRISM_BREAKS','VELVET_CIRCUIT','AXIOM_BLOOM'].includes(button.dataset.amplifier);
-        Object.assign(state, { speed:1.0, bloomIntensity:.8, audioSensitivity:1.0, primaryColor:'#59EBDD', secondaryColor:'#7FDFED', accentColor:'#B4FFF8' }, profile);
+        Object.assign(state, { speed:1.0, bloomIntensity:.8, audioSensitivity:1.0, primaryColor:'#B8F35A', secondaryColor:'#67E8C2', accentColor:'#FF8066' }, profile);
         state.isPlaying = true;
         resetArrangement();
         amplifierTitle.textContent = profile.title;
@@ -2575,7 +2564,7 @@
 
       const surgeGridActive = state.amplifierMode === 'NOETIC_SURGE' && state.geometry === 'NEON_GRID';
       const fadeAlpha = surgeGridActive ? 1 - Math.pow(.72, deltaSeconds * 60) : .18;
-      ctx.fillStyle = `rgba(5, 26, 27, ${fadeAlpha})`;
+      ctx.fillStyle = `rgba(7, 16, 12, ${fadeAlpha})`;
       ctx.fillRect(0, 0, width, height);
 
       const cx = width / 2;

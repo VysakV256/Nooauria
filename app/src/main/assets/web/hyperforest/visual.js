@@ -1,14 +1,15 @@
 const clamp = (value, low = 0, high = 1) => Math.max(low, Math.min(high, value));
-const turquoise = '102, 234, 221';
-const coolCyan = '80, 214, 232';
-const ice = '170, 242, 255';
+const lime = '213, 246, 115';
+const gold = '244, 198, 103';
+const sage = '131, 221, 188';
+const amber = '240, 204, 114';
 const bands = ['low', 'mid', 'high'];
 const nearSilence = value => value < 0.004;
 const neonPalette = [
-  { glow: coolCyan, core: ice, band: 2 },
-  { glow: '158, 106, 235', core: '216, 183, 249', band: 1 },
-  { glow: turquoise, core: '184, 255, 242', band: 2 },
-  { glow: '237, 174, 85', core: '250, 222, 164', band: 0 },
+  { glow: '35, 226, 254', core: '172, 250, 255', band: 2 },
+  { glow: '255, 49, 187', core: '255, 171, 230', band: 1 },
+  { glow: '161, 252, 57', core: '222, 255, 171', band: 2 },
+  { glow: '255, 176, 43', core: '255, 231, 155', band: 0 },
 ];
 
 const meter = (signal, key) => {
@@ -88,7 +89,7 @@ export function createForestVisualizer(canvas, { waveformPosition = 0.84, showWa
     radius: 0.55 + random() * 1.55,
     speed: 0.12 + random() * 0.44,
     phase: random() * Math.PI * 2,
-    cooler: random() > 0.76,
+    warmth: random() > 0.76,
     threshold: random(),
   }));
   const roots = Array.from({ length: 16 }, (_, index) => ({
@@ -160,7 +161,7 @@ export function createForestVisualizer(canvas, { waveformPosition = 0.84, showWa
       const sway = Math.sin(time * 0.61 + root.phase) * 4 * reveal;
       const opacity = reveal * (hyper ? 0.30 : 0.22);
 
-      context.strokeStyle = `rgba(${turquoise}, ${opacity})`;
+      context.strokeStyle = `rgba(${lime}, ${opacity})`;
       context.lineWidth = 0.6 + reveal * 0.45;
       context.beginPath();
       context.moveTo(origin, bottom);
@@ -175,7 +176,7 @@ export function createForestVisualizer(canvas, { waveformPosition = 0.84, showWa
         const side = index % 2 ? 1 : -1;
         const angle = -Math.PI / 2 + side * (0.66 + 0.42 * inverse);
         const size = (5 + inverse * 14) * reveal * Math.min(1, width / 610);
-        drawLeaf(context, x, y, angle, size, opacity * (0.60 + inverse * 0.29), turquoise);
+        drawLeaf(context, x, y, angle, size, opacity * (0.60 + inverse * 0.29), lime);
       }
     }
   }
@@ -195,7 +196,7 @@ export function createForestVisualizer(canvas, { waveformPosition = 0.84, showWa
       const y = spore.y * height + Math.cos(drift * 0.86 + spore.phase) * (7 + smoothEnergy * 17);
       const twinkle = 0.60 + Math.sin(drift * 2.7 + spore.phase) * 0.29;
       const radius = spore.radius * (0.81 + smoothGrowth * 0.34 + pulse * 0.40);
-      const color = spore.cooler ? coolCyan : turquoise;
+      const color = spore.warmth ? gold : lime;
 
       if (radius > 1.35) {
         context.fillStyle = `rgba(${color}, ${opacity * twinkle * 0.17})`;
@@ -224,11 +225,11 @@ export function createForestVisualizer(canvas, { waveformPosition = 0.84, showWa
     const signal = motionPreference.matches ? null : state.waveform;
     const hasSignal = state.playing && signal?.length;
     const gradient = context.createLinearGradient(widthInset, baseline, width - widthInset, baseline);
-    gradient.addColorStop(0, `rgba(${turquoise}, 0)`);
-    gradient.addColorStop(0.16, `rgba(${turquoise}, ${intensity * 0.58})`);
-    gradient.addColorStop(0.51, `rgba(${turquoise}, ${intensity})`);
-    gradient.addColorStop(0.83, `rgba(${coolCyan}, ${intensity * 0.72})`);
-    gradient.addColorStop(1, `rgba(${coolCyan}, 0)`);
+    gradient.addColorStop(0, `rgba(${lime}, 0)`);
+    gradient.addColorStop(0.16, `rgba(${lime}, ${intensity * 0.58})`);
+    gradient.addColorStop(0.51, `rgba(${lime}, ${intensity})`);
+    gradient.addColorStop(0.83, `rgba(${gold}, ${intensity * 0.72})`);
+    gradient.addColorStop(1, `rgba(${lime}, 0)`);
 
     context.strokeStyle = gradient;
     context.lineJoin = 'round';
@@ -277,13 +278,13 @@ export function createForestVisualizer(canvas, { waveformPosition = 0.84, showWa
     const drift = Math.sin(time * (0.35 + high * 0.42)) * height * 0.038;
     const spread = 0.045 + low * 0.039 + smoothGrowth * 0.023;
     drawHaze(width * (0.20 + mid * 0.12), height * 0.50 + drift,
-      Math.min(width, height) * (0.75 + low * 0.36), turquoise, strength * scale * (0.15 + low * 0.14));
+      Math.min(width, height) * (0.75 + low * 0.36), sage, strength * scale * (0.15 + low * 0.14));
 
     const trace = context.createLinearGradient(0, height * 0.2, width * 0.78, height * 0.72);
-    trace.addColorStop(0, `rgba(${turquoise}, 0)`);
-    trace.addColorStop(0.24, `rgba(${turquoise}, 0.68)`);
-    trace.addColorStop(0.58, `rgba(${turquoise}, 0.55)`);
-    trace.addColorStop(1, `rgba(${turquoise}, 0)`);
+    trace.addColorStop(0, `rgba(${sage}, 0)`);
+    trace.addColorStop(0.24, `rgba(${sage}, 0.68)`);
+    trace.addColorStop(0.58, `rgba(${sage}, 0.55)`);
+    trace.addColorStop(1, `rgba(${sage}, 0)`);
     context.strokeStyle = trace;
     context.lineWidth = 0.8 + high * 0.7;
 
@@ -314,13 +315,13 @@ export function createForestVisualizer(canvas, { waveformPosition = 0.84, showWa
     const size = Math.min(width, height);
     const breadth = Math.min(width * 0.55, height * 0.97) * (0.71 + low * 0.29 + beat * 0.19);
     context.globalAlpha = 1;
-    drawHaze(x, y, size * (0.69 + low * 0.20), coolCyan, scale * strength * (0.085 + beat * 0.13));
+    drawHaze(x, y, size * (0.69 + low * 0.20), amber, scale * strength * (0.085 + beat * 0.13));
 
     const trace = context.createLinearGradient(x - breadth, y + height * 0.19, x + breadth, y);
-    trace.addColorStop(0, `rgba(${coolCyan}, 0)`);
-    trace.addColorStop(0.32, `rgba(${coolCyan}, 0.42)`);
-    trace.addColorStop(0.66, `rgba(${ice}, 0.86)`);
-    trace.addColorStop(1, `rgba(${ice}, 0)`);
+    trace.addColorStop(0, `rgba(${amber}, 0)`);
+    trace.addColorStop(0.32, `rgba(${amber}, 0.42)`);
+    trace.addColorStop(0.66, `rgba(${gold}, 0.86)`);
+    trace.addColorStop(1, `rgba(${gold}, 0)`);
     context.strokeStyle = trace;
 
     const count = immersive ? (hyper ? 8 : 6) : 3;

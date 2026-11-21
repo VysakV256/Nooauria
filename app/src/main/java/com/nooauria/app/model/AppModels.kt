@@ -114,9 +114,9 @@ data class ChatMessage(
 
 data class VisualizerState(
     val geometry: VisualizerGeometry = VisualizerGeometry.COSMIC_TUNNEL,
-    val primaryColor: String = "#59EBDD",
-    val secondaryColor: String = "#7FDFED",
-    val accentColor: String = "#B4FFF8",
+    val primaryColor: String = "#B8F35A",
+    val secondaryColor: String = "#67E8C2",
+    val accentColor: String = "#FF8066",
     val audioSensitivity: Float = 1.0f,
     val speed: Float = 1.0f,
     val particleDensity: Int = 300,

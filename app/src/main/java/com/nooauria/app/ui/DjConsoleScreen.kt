@@ -63,7 +63,7 @@ fun DjConsoleScreen(
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    colors = listOf(BioDarkBackground, BioSurface, BioDarkBackground)
+                    colors = listOf(BioDarkBackground, Color(0xFF01120F), BioDarkBackground)
                 )
             )
             .padding(12.dp)
@@ -213,7 +213,7 @@ fun DjConsoleScreen(
                         Text(
                             text = "${genre.defaultBpm} BPM",
                             fontSize = 9.sp,
-                            color = if (isSelected) BioDarkBackground else BioMuted
+                            color = if (isSelected) Color.DarkGray else Color.Gray
                         )
                     }
                 }
@@ -283,7 +283,8 @@ fun DjConsoleScreen(
                                 Text(text = "MUSICGEN NEURAL MODE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = BioEmerald)
                                 Switch(
                                     checked = djState.isExtendingTrack,
-                                    onCheckedChange = { onStateChange(djState.copy(isExtendingTrack = it)) }
+                                    onCheckedChange = { onStateChange(djState.copy(isExtendingTrack = it)) },
+                                    colors = SwitchDefaults.colors(checkedThumbColor = BioEmerald)
                                 )
                             }
                         }
@@ -321,7 +322,7 @@ fun DjConsoleScreen(
                         text = section.name,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (isSelected) Color.Black else BioMuted
+                        color = if (isSelected) Color.Black else Color.Gray
                     )
                 }
             }

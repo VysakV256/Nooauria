@@ -42,7 +42,6 @@ import com.nooauria.app.ui.theme.NeonMagenta
 import com.nooauria.app.ui.theme.BioCream
 import com.nooauria.app.ui.theme.BioGlassBorder
 import com.nooauria.app.ui.theme.BioSurface
-import com.nooauria.app.ui.theme.BioSurfaceRaised
 import com.nooauria.app.ui.theme.BioMuted
 
 class MainActivity : ComponentActivity() {
@@ -148,7 +147,7 @@ fun MainAppScreen() {
                 .padding(innerPadding)
                 .background(
                     Brush.radialGradient(
-                        colors = listOf(BioSurfaceRaised, DarkBackground),
+                        colors = listOf(Color(0xFF173124), DarkBackground),
                         radius = 1100f
                     )
                 )

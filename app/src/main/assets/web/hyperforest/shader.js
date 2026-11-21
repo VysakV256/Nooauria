@@ -23,12 +23,6 @@ uniform vec4 uField;
 uniform float uMotion;
 uniform vec3 uNeon;
 
-const vec3 TURQUOISE = vec3(0.045, 1.0, 0.82);
-const vec3 CYAN = vec3(0.12, 0.90, 1.0);
-const vec3 PALE_AQUA = vec3(0.72, 1.0, 0.97);
-const vec3 VIOLET = vec3(0.64, 0.32, 1.0);
-const vec3 AMBER = vec3(1.0, 0.63, 0.22);
-
 float hash(vec2 p) {
   vec3 seed = fract(vec3(p.xyx) * 0.1031);
   seed += dot(seed, seed.yzx + 19.19);
@@ -66,10 +60,10 @@ float spores(vec2 p, float density, float radius, float time) {
 
 vec3 neonColor(float index) {
   float channel = mod(index, 4.0);
-  if (channel < 0.5) return TURQUOISE;
-  if (channel < 1.5) return CYAN;
-  if (channel < 2.5) return VIOLET;
-  return AMBER;
+  if (channel < 0.5) return vec3(1.0, 0.09, 0.63);
+  if (channel < 1.5) return vec3(0.06, 0.86, 1.0);
+  if (channel < 2.5) return vec3(0.51, 1.0, 0.07);
+  return vec3(1.0, 0.43, 0.06);
 }
 
 float veinOffset(float along, float seed, float roughness) {
@@ -110,7 +104,7 @@ vec3 electricVein(vec2 p, vec2 base, vec2 tip, float seed, vec3 color, float wid
   float current = 0.51 + runningLight * (0.18 + uAuriscape.x * 0.22) + uAuriscape.y * 0.17;
   float lengthFade = smoothstep(0.0, 0.04, along) * (1.0 - smoothstep(0.79, 1.0, along));
   return lengthFade * current * (
-    mix(color, PALE_AQUA, 0.42) * core * 0.82 +
+    mix(color, vec3(0.94, 1.0, 1.0), 0.42) * core * 0.82 +
     color * (ribbon * 0.76 + halo * halo * 0.42)
   );
 }
@@ -119,7 +113,7 @@ vec3 neonTree(vec2 p, vec2 base, vec2 tip, float tree, float sceneWidth, float d
   float seed = 0.16 + tree * 0.21;
   float motion = mix(0.38, 1.0, uMotion);
   float roughness = 0.085 + (uAmbient.y * 0.075 + uAmbient.z * 0.025) * motion;
-  float spectralTurn = uAuriscape.y * 0.24 + uAuriscape.z * 0.18;
+  float spectralTurn = uAuriscape.y * 0.48 + uAuriscape.z * 0.25;
   vec3 color = mix(neonColor(tree), neonColor(tree + 1.0), spectralTurn);
   vec3 ink = electricVein(p, base, tip, seed, color, 0.0044 * depth, roughness);
 
@@ -134,7 +128,7 @@ vec3 neonTree(vec2 p, vec2 base, vec2 tip, float tree, float sceneWidth, float d
     vec2 branchTip = junction + vec2(side * reach + breeze, lift);
     float forkRoughness = 0.047 + uAmbient.y * 0.044 * motion;
     float forkSeed = fract(seed + index * 0.147);
-    vec3 petal = mix(color, neonColor(tree + 1.0 + mod(index, 2.0)), 0.20 + uAuriscape.z * 0.17);
+    vec3 petal = mix(color, neonColor(tree + 1.0 + mod(index, 2.0)), 0.24 + uAuriscape.z * 0.25);
     ink += electricVein(p, junction, branchTip, forkSeed, petal, 0.0029 * depth, forkRoughness) * 0.84;
 
     if (fork == 1 || fork == 2) {
@@ -146,13 +140,13 @@ vec3 neonTree(vec2 p, vec2 base, vec2 tip, float tree, float sceneWidth, float d
     float radius = length(p - junction);
     float hub = 1.0 - smoothstep(0.0015, 0.009 + depth * 0.003, radius);
     float glow = 1.0 - smoothstep(0.002, 0.037, radius);
-    ink += (mix(petal, PALE_AQUA, 0.29) * hub * 0.44 + petal * glow * glow * 0.27) * depth;
+    ink += (mix(petal, vec3(1.0, 0.96, 1.0), 0.29) * hub * 0.44 + petal * glow * glow * 0.27) * depth;
 
     // A beat accent charges one junction and the first centimetres of its offshoot.
     float selected = 1.0 - step(0.5, abs(uNeon.z - (tree * 4.0 + index)));
     float charge = uNeon.y * selected;
     float falloff = 1.0 - smoothstep(0.008, 0.075 + uAuriscape.x * 0.04, radius);
-    ink += charge * (PALE_AQUA * hub * 0.6 + petal * falloff * falloff * 1.15);
+    ink += charge * (vec3(0.97, 0.99, 1.0) * hub * 0.6 + petal * falloff * falloff * 1.15);
   }
   return ink;
 }
@@ -171,10 +165,9 @@ void renderNeon(vec2 uv) {
   vec3 ink = far * 0.82 + near;
   float dust = spores(p * 26.0 + vec2(-time * 0.23, -time * 0.14), 0.23 + uAmbient.z * 0.42, 0.10, time);
   float drift = spores(p * 14.0 + vec2(time * 0.12, -time * 0.16), 0.17 + uAuriscape.z * 0.40, 0.076, time + 1.8);
-  vec3 air = mix(TURQUOISE, CYAN, smoothstep(0.18, 0.82, uv.x));
-  vec3 accents = mix(VIOLET, AMBER, smoothstep(0.27, 0.71, uv.x));
+  vec3 air = mix(neonColor(0.0), neonColor(1.0), smoothstep(0.18, 0.82, uv.x));
   ink += air * dust * (0.25 + uAmbient.w * 0.33);
-  ink += mix(air, accents, 0.46) * drift * (0.2 + uAuriscape.z * 0.45);
+  ink += mix(neonColor(2.0), neonColor(3.0), smoothstep(0.27, 0.71, uv.x)) * drift * (0.2 + uAuriscape.z * 0.45);
 
   ink *= mix(1.0, 1.24, uField.w);
   float brightness = max(ink.r, max(ink.g, ink.b));
@@ -209,8 +202,8 @@ void main() {
   float rays = pow(noise(vec2(rayX * 22.0 + time * 0.027, 8.1)), 2.8);
   float haze = smoothstep(0.32, 0.91, air) * taper * upperLight;
   float rayLight = rays * upperLight * (0.025 + ambientWeight * 0.16 + uAmbient.w * 0.085);
-  vec3 ink = vec3(0.12, 0.65, 0.72) * haze * (0.04 + uAmbient.y * 0.21 + growth * 0.08);
-  ink += mix(TURQUOISE, CYAN, 0.58) * rayLight;
+  vec3 ink = vec3(0.38, 0.76, 0.43) * haze * (0.04 + uAmbient.y * 0.21 + growth * 0.08);
+  ink += vec3(0.65, 0.95, 0.34) * rayLight;
 
   // Low frequencies sit in larger curves. The upper register draws fine filaments.
   float crest = 0.14 * sin(uv.x * 3.14159);
@@ -236,10 +229,9 @@ void main() {
     float glow = 1.0 - smoothstep(0.0, width * (5.6 + immersive * 3.2), distanceToRidge);
     float knots = 0.52 + 0.48 * sin(phase * 1.02 + index * 1.2);
     float trail = 1.0 - smoothstep(width, width * 10.0, abs(uv.y - y + 0.026 + register * 0.015));
-    vec3 aqua = mix(CYAN, TURQUOISE, register);
-    vec3 accent = mix(VIOLET, AMBER, register);
-    float colorPulse = min(0.32, generated * 0.14 + beat * beatTravel * 0.22);
-    vec3 color = mix(aqua, accent, colorPulse);
+    vec3 green = mix(vec3(0.28, 0.79, 0.70), vec3(0.71, 0.98, 0.50), register);
+    vec3 amber = mix(vec3(0.92, 0.65, 0.26), vec3(0.76, 0.95, 0.43), register);
+    vec3 color = mix(green, amber, min(1.0, generated * 0.66 + beat * beatTravel * 0.62));
     float amplitude = (0.19 + generated * 0.47 + source * 0.13 + beat * 0.19 * beatTravel);
     amplitude *= mix(1.0, knots, 0.58) * edge;
     ink += color * (strand * 0.66 + glow * 0.34 + trail * immersive * (0.08 + 0.10 * hyper)) * amplitude;
@@ -248,8 +240,8 @@ void main() {
   // Fine highlights sample the top of the two spectra at different scales.
   float dust = spores(field * 27.0 + vec2(-time * 0.23, -time * 0.18), 0.23 + ambientAir * 0.42, 0.10, time);
   float sparks = spores(field * 13.5 + vec2(time * 0.13, -time * 0.09), 0.25 + growth * 0.24, 0.081, time + 2.1);
-  ink += PALE_AQUA * dust * (0.1 + ambientAir * 0.28 + uAmbient.w * 0.16) * upperLight;
-  ink += mix(VIOLET, AMBER, smoothstep(0.32, 0.72, uv.x)) * sparks * (0.12 + uAuriscape.z * 0.32 + beat * 0.24) * edge;
+  ink += vec3(0.56, 0.97, 0.48) * dust * (0.1 + ambientAir * 0.28 + uAmbient.w * 0.16) * upperLight;
+  ink += vec3(1.0, 0.78, 0.36) * sparks * (0.12 + uAuriscape.z * 0.32 + beat * 0.24) * edge;
 
   ink *= 0.8 + immersive * 0.45 + growth * 0.13;
   float brightness = max(ink.r, max(ink.g, ink.b));
