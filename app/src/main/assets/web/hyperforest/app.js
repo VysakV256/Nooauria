@@ -30,7 +30,8 @@ const modeNames = { forest: 'Forest', hyperforest: 'Hyperforest' };
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const FLASH_INTERVAL_MS = 420;
 
-let current = buildScene(promptInput.value);
+const defaultMode = modeButtons.find((button) => button.getAttribute('aria-pressed') === 'true')?.dataset.mode;
+let current = buildScene(promptInput.value, defaultMode);
 let input = 'city';
 let lastDemo = 'city';
 let awaitingMicrophone = false;

@@ -6,6 +6,16 @@ const DORIAN = [0, 2, 3, 5, 7, 9, 10];
 const MAJOR = [0, 2, 4, 5, 7, 9, 11];
 const SILENCE = 0.0001;
 const SILENT_AURISCAPE = Object.freeze({ level: 0, low: 0, mid: 0, high: 0, beat: 0 });
+const HYPERFOREST_PATTERNS = [
+  { kicks: [3, 6, 10, 11], ghosts: [2, 7, 9, 15], bass: [3, 6, 8, 10, 14] },
+  { kicks: [2, 7, 11, 14], ghosts: [3, 5, 8, 13], bass: [2, 5, 7, 11, 15] },
+  { kicks: [5, 8, 10, 13], ghosts: [2, 6, 10, 14], bass: [4, 7, 8, 13, 15] },
+  { kicks: [3, 7, 9, 15], ghosts: [1, 6, 11, 14], bass: [3, 5, 9, 11, 14] },
+  { kicks: [2, 6, 8, 11, 14], ghosts: [3, 7, 10, 13], bass: [2, 6, 8, 12, 15] },
+  { kicks: [5, 9, 10, 13], ghosts: [2, 7, 11, 15], bass: [3, 5, 9, 10, 13] },
+];
+const HYPERFOREST_PROGRESSIONS = [[0, 0, 3, 5], [0, 5, 2, 4], [0, 2, 5, 3], [0, 3, 6, 4]];
+const HYPERFOREST_LAYER_LIMIT = 60;
 
 const clamp = (number, min = 0, max = 1) => Math.max(min, Math.min(max, number));
 const midiHz = (note) => 440 * 2 ** ((note - 69) / 12);
@@ -37,6 +47,7 @@ export function buildScene(prompt = '', mode = 'forest') {
   const canopy = /\b(canopy|birds?|feathers?|jungle|wildlife|tropical|forest|ferns?|garden|crickets?|insects?)\b/.test(text);
   const quick = /\b(fast|jungle|urgent|intense|quick|energetic|frenetic)\b/.test(text);
   const deepBass = /\b(bass|sub|rumble|deep|underground)\b/.test(text);
+  const unstable = /\b(chaotic|chaos|stochastic|glitch|glitchy|feral|fractured|stutter|wild|warped)\b/.test(text);
   const explicitTempo = text.match(/\b(\d{2,3})\s*(?:bpm|beats per minute)\b/);
   const explicitKey = text.match(/\b([a-g])([♯#♭b]?)[ -]+(minor|major|dorian)\b/);
   const note = { a: 9, b: 11, c: 0, d: 2, e: 4, f: 5, g: 7 };
@@ -45,6 +56,8 @@ export function buildScene(prompt = '', mode = 'forest') {
   const scaleName = explicitKey?.[3] ?? (bright && !storm ? 'dorian' : 'minor');
   const tempo = (hyper ? 168 : 122) + (seed % 9) * (hyper ? 1 : 2) + (quick ? 5 : 0) - (calm ? 10 : 0);
   const density = clamp((hyper ? 0.77 : 0.46) + (quick ? 0.09 : 0) + (storm ? 0.12 : 0) - (calm ? 0.15 : 0) + (randomAt(seed, 4) - 0.5) * 0.10, 0.18, 0.97);
+  const chaos = clamp(0.64 + (unstable ? 0.22 : 0) + (storm ? 0.13 : 0) + (quick ? 0.08 : 0) -
+    (calm ? 0.20 : 0) + (randomAt(seed, 11) - 0.5) * 0.12);
 
   return {
     prompt: cleanPrompt,
@@ -53,6 +66,7 @@ export function buildScene(prompt = '', mode = 'forest') {
     bpm: explicitTempo ? clamp(Number(explicitTempo[1]), 55, 220) : tempo,
     key: `${PITCHES[pitch]} ${scaleName}`,
     density,
+    chaos: hyper ? chaos : 0,
     seed,
     root: 36 + pitch,
     scale: { major: MAJOR, minor: MINOR, dorian: DORIAN }[scaleName],
@@ -458,7 +472,11 @@ export class ForestAudio {
 
   schedule(position, time, seconds) {
     const scene = this.scene;
-    const hyper = scene.mode === 'hyperforest';
+    if (scene.mode === 'hyperforest') {
+      this.scheduleHyperforest(position, time, seconds);
+      return;
+    }
+
     const step = position % 16;
     const measure = Math.floor(position / 16);
     const variant = measure % 4;
@@ -467,30 +485,29 @@ export class ForestAudio {
     const drive = clamp(meters.level * 0.60 + meters.onset * 0.28 + meters.mid * 0.12);
     const density = clamp(scene.density * (0.48 + drive * 0.95) + meters.high * 0.14);
     const velocity = 0.55 + meters.level * 0.25 + meters.onset * 0.14;
-    const offKick = hyper ? [[6, 10, 11], [3, 7, 10, 14], [6, 10, 13], [2, 7, 11, 14]][variant] : [[7, 10], [8, 14], [6, 11], [7, 12]][variant];
+    const offKick = [[7, 10], [8, 14], [6, 11], [7, 12]][variant];
 
     if (step === 0 || (offKick.includes(step) && random(0) < 0.54 + density * 0.44)) {
       this.kick(time, velocity * (step === 0 ? 0.92 : 0.79) * (0.88 + meters.low * 0.16));
     }
-    if (step === 4 || step === 12) this.snare(time, velocity * (hyper ? 0.85 : 0.59), hyper);
-    else if ((hyper ? [2, 3, 7, 9, 11, 13, 15] : [3, 11, 15]).includes(step) && random(1) < density * 0.85) {
-      this.snare(time, velocity * (0.18 + random(7) * 0.22), hyper);
+    if (step === 4 || step === 12) this.snare(time, velocity * 0.59, false);
+    else if ([3, 11, 15].includes(step) && random(1) < density * 0.85) {
+      this.snare(time, velocity * (0.18 + random(7) * 0.22), false);
     }
 
-    const openHat = step === 6 || (hyper && step === 14);
-    if (openHat || (step % 2 === 0 ? random(2) < 0.66 + density * 0.28 : random(2) < density * (hyper ? 0.96 : 0.53))) {
+    const openHat = step === 6;
+    if (openHat || (step % 2 === 0 ? random(2) < 0.66 + density * 0.28 : random(2) < density * 0.53)) {
       this.hat(time, (0.12 + random(8) * 0.15 + meters.high * 0.12) * velocity, openHat, (random(5) - 0.5) * 0.8);
     }
 
-    const bassSteps = hyper ? [0, 3, 6, 8, 10, 14] : [0, 7, 10];
-    if (bassSteps.includes(step) && (step === 0 || random(3) < 0.6 + density * 0.38)) {
+    if ([0, 7, 10].includes(step) && (step === 0 || random(3) < 0.6 + density * 0.38)) {
       const roots = [0, 0, 3, 5];
       const degree = step === 0 ? roots[variant] : [0, 0, 1, 2, 4, 5, 6][Math.floor(random(5) * 7)];
       const note = scene.root + scene.scale[degree];
-      this.bass(time, note > 44 ? note - 12 : note, seconds * (step === 0 ? (hyper ? 2.9 : 5.1) : 1.9 + random(6)), velocity * scene.weight, hyper);
+      this.bass(time, note > 44 ? note - 12 : note, seconds * (step === 0 ? 5.1 : 1.9 + random(6)), velocity * scene.weight, false);
     }
 
-    if (step === 0) this.pad(time, scene.root + scene.scale[[0, 2, 3, 4][variant]], seconds * (hyper ? 18 : 20), 0.055 + drive * 0.13);
+    if (step === 0) this.pad(time, scene.root + scene.scale[[0, 2, 3, 4][variant]], seconds * 20, 0.055 + drive * 0.13);
     if (random(4) < density * (0.27 + meters.mid * 0.34) && (step !== 4 && step !== 12)) {
       this.wood(time, 0.08 + drive * 0.24, Math.floor(random(7) * 7), random(6) * 1.4 - 0.7);
     }
@@ -498,6 +515,124 @@ export class ForestAudio {
       this.bird(time, 0.05 + meters.high * 0.13 + drive * 0.10, random(9));
       this.lastChirp = time;
     }
+  }
+
+  scheduleHyperforest(position, time, seconds) {
+    const { scene, meters } = this;
+    const step = position % 16;
+    const bar = Math.floor(position / 16);
+    const phrase = Math.floor(bar / 4);
+    const barInPhrase = bar % 4;
+    const phraseSeed = scene.seed ^ Math.imul(phrase + 1, 0x7feb352d);
+    const variation = (lane) => randomAt(phraseSeed ^ 0x4f1bbcdd, barInPhrase * 8 + lane);
+    const hit = (lane) => randomAt(phraseSeed, (position % 64) * 24 + lane);
+    const chaos = scene.chaos ?? 0.64;
+    const density = clamp(scene.density * 0.52 + chaos * 0.24 + meters.level * 0.23 + meters.onset * 0.18);
+    const velocity = 0.60 + meters.level * 0.20 + meters.onset * 0.12;
+    const patterns = HYPERFOREST_PATTERNS;
+    const motif = Math.floor(randomAt(phraseSeed, 17) * patterns.length);
+    const mutation = barInPhrase > 0 && variation(0) < chaos * 0.92 ? 1 + Math.floor(variation(1) * (patterns.length - 1)) : 0;
+    const pattern = patterns[(motif + mutation) % patterns.length];
+    const turnaround = barInPhrase === 3;
+    const gapStart = variation(3) < 0.5 ? 5 : 9;
+    const dropout = barInPhrase > 0 && variation(2) < chaos * 0.50 && step >= gapStart && step < gapStart + 3;
+    const fits = (sources) => this.voices.size + sources <= HYPERFOREST_LAYER_LIMIT;
+
+    // Anchor the shifting breaks with a kick at the bar line and two backbeats.
+    if (step === 0) this.kick(time, velocity * (0.88 + meters.low * 0.10));
+    if (step === 4 || step === 12) this.snare(time, velocity * 0.88, true);
+
+    if (!dropout && pattern.kicks.includes(step) && hit(0) < 0.51 + density * 0.40 + meters.low * 0.09 && fits(2)) {
+      this.kick(time + seconds * hit(1) * 0.07, velocity * (0.49 + hit(2) * 0.31));
+    }
+    if (!dropout && pattern.ghosts.includes(step) && hit(3) < 0.27 + density * 0.64 + meters.mid * 0.14 && fits(3)) {
+      this.snare(time + seconds * (0.07 + hit(4) * 0.24), velocity * (0.19 + hit(5) * 0.23), true);
+    }
+    const openHat = (step === 6 || step === 14) && hit(6) < 0.72;
+    const hatChance = (step % 2 === 0 ? 0.34 : 0.16) + density * 0.48 + meters.high * 0.22;
+    if (!dropout && (openHat || hit(7) < hatChance) && fits(1)) {
+      this.hat(time + seconds * hit(8) * 0.18, velocity * (0.11 + hit(9) * 0.19 + meters.high * 0.15), openHat, hit(10) * 1.6 - 0.8);
+    }
+
+    const progressions = HYPERFOREST_PROGRESSIONS;
+    const progression = progressions[Math.floor(randomAt(phraseSeed, 37) * progressions.length)];
+    const degree = progression[barInPhrase];
+    const bassChance = 0.46 + density * 0.35 + meters.low * 0.17;
+    if ((step === 0 || (!dropout && pattern.bass.includes(step) && hit(11) < bassChance)) && fits(2)) {
+      const intervals = [0, 0, 1, 2, 4, 5, 6];
+      const offset = step === 0 ? 0 : intervals[Math.floor(hit(12) * intervals.length)];
+      const scaleSize = scene.scale.length;
+      const scaleDegree = (degree + offset) % scaleSize;
+      const note = scene.root + scene.scale[scaleDegree];
+      const short = hit(13) < chaos * 0.58;
+      const duration = seconds * (step === 0 ? 2.6 + hit(14) * 1.5 : short ? 0.54 + hit(14) * 0.42 : 1.45 + hit(14) * 0.82);
+      const adjacent = scaleDegree + (hit(16) < 0.5 ? -1 : 1);
+      const adjacentNote = scene.scale[(adjacent + scaleSize) % scaleSize] + 12 * Math.floor(adjacent / scaleSize);
+      const semitoneBend = step > 0 && hit(15) < chaos * 0.56 ? adjacentNote - scene.scale[scaleDegree] : 0;
+      this.bass(time, note > 44 ? note - 12 : note, duration, velocity * scene.weight * (step === 0 ? 0.95 : 0.78), true, {
+        semitoneBend,
+        modulation: chaos * hit(17),
+      });
+    }
+    if (step === 0 && (!turnaround || variation(4) > chaos * 0.6) && fits(4)) {
+      this.pad(time, scene.root + scene.scale[degree], seconds * (12 + variation(5) * 6), 0.054 + meters.growth * 0.11);
+    }
+
+    const close = step === 15 && (turnaround || (barInPhrase === 1 && variation(6) < chaos));
+    const pickup = [7, 11, 15].includes(step) && hit(18) < chaos * 0.35 + meters.onset * 0.34;
+    if ((close || (!dropout && pickup)) && fits(4)) {
+      this.breakFill(time, seconds, velocity, chaos, hit(19), turnaround);
+    } else if (hit(19) < 0.15 + chaos * 0.17 + meters.high * 0.23 + meters.onset * 0.22 && fits(4)) {
+      const character = hit(20);
+      const strength = 0.10 + chaos * 0.11 + meters.high * 0.12;
+      this.grain(time + seconds * 0.23, strength, degree, character, character * 1.5 - 0.75);
+      if (character > 0.48 || meters.onset > 0.27) {
+        this.grain(time + seconds * (0.57 + character * 0.24), strength * 0.69, (degree + 2) % scene.scale.length, 1 - character, 0.8 - character * 1.6);
+      }
+    } else if (hit(21) < (scene.wildlife * 0.12 + scene.water * 0.05) * (0.46 + meters.growth + meters.high) &&
+        time - this.lastChirp > 0.21 && fits(3)) {
+      this.bird(time, 0.07 + meters.high * 0.14 + meters.onset * 0.12, hit(22));
+      this.lastChirp = time;
+    }
+  }
+
+  breakFill(time, seconds, velocity, chaos, character, turnaround) {
+    const offsets = turnaround || character < chaos * 0.61 ? [0.08, 0.36, 0.63, 0.87] : [0.22, 0.54, 0.86];
+    const lean = character < 0.5 ? -1 : 1;
+    offsets.forEach((offset, index) => {
+      const shell = character + index * 0.24;
+      this.noise({
+        output: this.pan(this.drums, lean * (index % 2 ? -0.73 : 0.66)),
+        time: time + seconds * offset,
+        highpass: 680 + shell * 1840,
+        lowpass: 3600 + shell * 3600,
+        peak: velocity * (0.31 + chaos * 0.19) * (1 - index * 0.12),
+        attack: 0.002,
+        release: Math.min(0.041, seconds * (0.34 + character * 0.20)),
+        q: 1.05 + character * 0.55,
+        rate: 0.72 + shell * 0.74,
+        offset: character * 0.66 + index * 0.19,
+      });
+    });
+  }
+
+  grain(time, velocity, degree, character, pan) {
+    const output = this.pan(this.nature, pan);
+    const frequency = midiHz(this.scene.root + 36 + this.scene.scale[degree]);
+    const color = this.scene.color * 0.55 + this.meters.high * 0.33 + character * 0.12;
+    this.tone({
+      output, start: time, type: 'triangle',
+      frequency: frequency * (0.84 + character * 0.68),
+      endFrequency: frequency * (0.78 + color * 0.55),
+      bend: 0.044, peak: velocity * 0.46, attack: 0.004, release: 0.046 + character * 0.060,
+    });
+    this.noise({
+      output, time,
+      highpass: 240 + color * 1020,
+      lowpass: 1300 + color * 4100,
+      peak: velocity * 0.53, attack: 0.003, release: 0.027 + character * 0.062,
+      color: 'pink', rate: 0.52 + character * 1.20, offset: character * 3.6,
+    });
   }
 
   envelope(output, time, peak, attack, release) {
@@ -509,13 +644,14 @@ export class ForestAudio {
     return gain;
   }
 
-  track(source, time, end) {
+  track(source, time, end, offset) {
     this.voices.add(source);
     source.onended = () => {
       this.voices.delete(source);
       source.disconnect();
     };
-    source.start(time);
+    if (offset === undefined) source.start(time);
+    else source.start(time, offset);
     source.stop(end);
   }
 
@@ -529,7 +665,7 @@ export class ForestAudio {
     return oscillator;
   }
 
-  noise({ output, time, highpass, lowpass, peak, attack = 0.003, release, q = 0.7, color = 'white', rate = 1, bend }) {
+  noise({ output, time, highpass, lowpass, peak, attack = 0.003, release, q = 0.7, color = 'white', rate = 1, bend, offset }) {
     const source = this.context.createBufferSource();
     source.buffer = color === 'white' ? this.percussionNoise : this.ambientNoise;
     source.loop = true;
@@ -541,7 +677,7 @@ export class ForestAudio {
     }
     source.connect(this.filter('highpass', highpass)).connect(low);
     low.connect(this.envelope(output, time, peak, attack, release));
-    this.track(source, time, time + attack + release + 0.016);
+    this.track(source, time, time + attack + release + 0.016, offset);
   }
 
   kick(time, velocity) {
@@ -563,14 +699,22 @@ export class ForestAudio {
     this.noise({ output: this.pan(this.drums, pan), time, highpass: open ? 4500 : 5300, lowpass: open ? 10500 : 13600, peak: velocity * 0.68, release: open ? 0.16 : 0.047, q: 0.9 });
   }
 
-  bass(time, note, duration, velocity, hyper) {
+  bass(time, note, duration, velocity, hyper, { semitoneBend = 0, modulation = 0 } = {}) {
     const frequency = midiHz(note);
-    this.tone({ output: this.basses, start: time, frequency, peak: velocity * 0.69, attack: 0.018, release: duration });
+    const endFrequency = semitoneBend ? midiHz(note + semitoneBend) : frequency;
+    const bend = semitoneBend ? Math.max(0.024, duration * 0.72) : 0.1;
+    this.tone({ output: this.basses, start: time, frequency, endFrequency, bend, peak: velocity * 0.69, attack: 0.018, release: duration });
     const filter = this.filter('lowpass', 220, hyper ? 2.9 : 1.1);
-    filter.frequency.setValueAtTime(180 + this.scene.color * 820 + this.meters.low * 500, time);
+    const cutoff = 180 + this.scene.color * 820 + this.meters.low * 500;
+    filter.frequency.setValueAtTime(cutoff, time);
+    if (modulation > 0.28) {
+      filter.frequency.exponentialRampToValueAtTime(130 + cutoff * 0.28, time + duration * 0.30);
+      filter.frequency.exponentialRampToValueAtTime(cutoff * (1 + modulation * 0.41), time + duration * 0.62);
+    }
     filter.frequency.exponentialRampToValueAtTime(135, time + Math.max(0.10, duration * 0.8));
     filter.connect(this.basses);
-    this.tone({ output: filter, type: hyper ? 'sawtooth' : 'triangle', start: time, frequency: frequency * (hyper ? 1.007 : 2), peak: velocity * (hyper ? 0.38 : 0.18), attack: 0.025, release: duration * 0.94 });
+    const detuning = hyper ? 1.007 : 2;
+    this.tone({ output: filter, type: hyper ? 'sawtooth' : 'triangle', start: time, frequency: frequency * detuning, endFrequency: endFrequency * detuning, bend, peak: velocity * (hyper ? 0.38 : 0.18), attack: 0.025, release: duration * 0.94 });
   }
 
   pad(time, note, duration, velocity) {

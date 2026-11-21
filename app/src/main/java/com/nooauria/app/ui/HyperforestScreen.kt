@@ -2,7 +2,6 @@ package com.nooauria.app.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.graphics.Color
 import android.net.Uri
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
@@ -21,12 +20,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.webkit.WebViewAssetLoader
+import com.nooauria.app.ui.theme.BioDarkBackground
 import java.io.ByteArrayInputStream
 
 private const val ASSET_HOST = WebViewAssetLoader.DEFAULT_DOMAIN
@@ -75,7 +76,7 @@ fun HyperforestScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 .build()
 
             WebView(context).apply {
-                setBackgroundColor(Color.rgb(12, 16, 13))
+                setBackgroundColor(BioDarkBackground.toArgb())
                 settings.javaScriptEnabled = true
                 settings.allowFileAccess = false
                 settings.allowContentAccess = false

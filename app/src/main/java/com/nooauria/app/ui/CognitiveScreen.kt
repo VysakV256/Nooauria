@@ -151,7 +151,7 @@ fun CognitiveScreen(
                     Switch(
                         checked = cognitiveState.brownNoiseEnabled,
                         onCheckedChange = { onStateChange(cognitiveState.copy(brownNoiseEnabled = it)) },
-                        colors = SwitchDefaults.colors(checkedThumbColor = BioCyan)
+                        colors = SwitchDefaults.colors(checkedTrackColor = BioCyan)
                     )
                 }
             }
@@ -180,7 +180,7 @@ fun CognitiveScreen(
                     Switch(
                         checked = cognitiveState.binauralEnabled,
                         onCheckedChange = { onStateChange(cognitiveState.copy(binauralEnabled = it)) },
-                        colors = SwitchDefaults.colors(checkedThumbColor = BioEmerald)
+                        colors = SwitchDefaults.colors(checkedTrackColor = BioEmerald)
                     )
                 }
 
@@ -251,7 +251,7 @@ fun CognitiveScreen(
                     Switch(
                         checked = cognitiveState.solfeggioEnabled,
                         onCheckedChange = { onStateChange(cognitiveState.copy(solfeggioEnabled = it)) },
-                        colors = SwitchDefaults.colors(checkedThumbColor = BioCyan)
+                        colors = SwitchDefaults.colors(checkedTrackColor = BioCyan)
                     )
                 }
 

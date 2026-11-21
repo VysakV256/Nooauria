@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
-  <meta name="theme-color" content="#0c100d">
+  <meta name="theme-color" content="#061819">
   <meta name="description" content="Grow an evolving jungle beat from a text prompt and the sounds around you.">
   <title>Hyperforest — Nooauria</title>
   <link rel="icon" href="./mark.svg" type="image/svg+xml">
@@ -90,7 +90,7 @@
           <div class="scene-kicker"><svg class="icon"><use href="#i-leaf"/></svg><span id="field-input">City streets</span></div>
           <h2 id="scene-title">Concrete canopy</h2>
           <div class="scene-stats">
-            <span id="scene-bpm"></span><span id="scene-key"></span><span id="scene-mode">Forest</span>
+            <span id="scene-bpm"></span><span id="scene-key"></span><span id="scene-mode">Hyperforest</span>
           </div>
         </div>
         <div class="transport">
@@ -112,7 +112,7 @@
         <form id="seed-form">
           <div class="seed-entry">
             <label class="sr-only" for="prompt">Forest prompt</label>
-            <textarea id="prompt" rows="2" maxlength="240" placeholder="Describe your forest…" required>Concrete canopy, heavy rain and deep green bass</textarea>
+            <textarea id="prompt" rows="2" maxlength="240" placeholder="Describe your forest…" required>Concrete canopy, heavy rain, fractured breaks and deep bass</textarea>
             <button class="seed-button" type="submit">Grow <svg class="icon"><use href="#i-sprout"/></svg></button>
           </div>
           <div class="prompt-presets" aria-label="Example prompts">
@@ -124,8 +124,8 @@
         <div class="mode-row">
           <span class="control-label" id="mode-label">Beat mode</span>
           <div class="mode-switch" role="group" aria-labelledby="mode-label">
-            <button type="button" data-mode="forest" aria-pressed="true"><svg class="icon"><use href="#i-trees"/></svg>Forest</button>
-            <button type="button" data-mode="hyperforest" aria-pressed="false"><svg class="icon"><use href="#i-spark"/></svg>Hyperforest</button>
+            <button type="button" data-mode="forest" aria-pressed="false"><svg class="icon"><use href="#i-trees"/></svg>Forest</button>
+            <button type="button" data-mode="hyperforest" aria-pressed="true"><svg class="icon"><use href="#i-spark"/></svg>Hyperforest</button>
           </div>
         </div>
       </section>
