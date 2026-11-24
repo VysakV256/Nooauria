@@ -12,7 +12,7 @@ const html = process.env.NOOAURIA_TEST_REF
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 const settle = async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); };
 
-function habitat({ scoreOnly = false } = {}) {
+function habitat({ scoreOnly = false, trackAutomation = false } = {}) {
   const contexts = [], intervals = new Map(), elements = new Map(), groups = new Map(), errors = [];
   let nextTimer = 1;
   class Events {
@@ -24,11 +24,16 @@ function habitat({ scoreOnly = false } = {}) {
     emit(name) { for (const fn of this.listeners.get(name) || []) fn({ target: this, type: name }); }
   }
   class Param {
-    constructor() { this.value = 0; }
-    setValueAtTime(v) { assert.ok(Number.isFinite(v)); this.value = v; }
-    linearRampToValueAtTime(v) { this.setValueAtTime(v); }
-    exponentialRampToValueAtTime(v) { assert.ok(v > 0); this.setValueAtTime(v); }
-    setTargetAtTime(v) { this.setValueAtTime(v); }
+    constructor() { this.value = 0; this.automation = trackAutomation ? [] : null; }
+    setValueAtTime(v, time) { this.set(v, time, 'set'); }
+    linearRampToValueAtTime(v, time) { this.set(v, time, 'linearRamp'); }
+    exponentialRampToValueAtTime(v, time) { assert.ok(v > 0); this.set(v, time, 'exponentialRamp'); }
+    setTargetAtTime(v, time) { this.set(v, time, 'target'); }
+    set(value, time, type) {
+      assert.ok(Number.isFinite(value));
+      this.value = value;
+      this.automation?.push({ value, time, type });
+    }
     cancelScheduledValues() {}
   }
   class Node extends Events {
@@ -117,17 +122,19 @@ function habitat({ scoreOnly = false } = {}) {
   vm.runInContext(`
     this.inspectArrangement = () => ({ elapsed: arrangementTime(), ...arrangementAt(arrangementTime()), bpm: state.bpm });
     this.inspectTrack = () => generatedTrack;
+    this.inspectScoreGraph = () => ({ gate: typeof scoreGate === 'undefined' ? null : scoreGate, echo: crystalEcho, delay: delayNode,
+      cognitive: typeof cognitiveOutput === 'undefined' ? null : cognitiveOutput });
     this.inspectAtmosphere = () => ({ carrier:binauralGain?.gain.value, beacon:solfeggioGain?.gain.value });
     this.scoreEvents = [];
   `, sandbox);
   if (scoreOnly) vm.runInContext(`
     for (const name of ['playKick','playSnare','playHiHat','playGhostSnare','playBass','playMysticalSub','playSynthLead','playSurgeSpark','playProductionVoice','playCyberSample','playSoundSlab','playExursivePercussion','playLensVoice']) {
-      const record = (...args) => scoreEvents.push({ instrument:name, step:stepIndex, time:args[0], args:args.slice(1) });
+      const record = (...args) => scoreEvents.push({ instrument:name, section:generatedTrack?.section, step:stepIndex, time:args[0], args:args.slice(1) });
       eval(name + ' = record');
     }
   `, sandbox);
   return { contexts, intervals, groups, element, document, window, errors, inspect: sandbox.inspectAudio,
-    atmosphere: sandbox.inspectAtmosphere, track: sandbox.inspectTrack, arrangement: sandbox.inspectArrangement, scoreEvents: sandbox.scoreEvents, spark: sandbox.playSurgeSpark, trinary: sandbox.playTrinaryChime, binaryBurst: sandbox.playBinaryBurst,
+    atmosphere: sandbox.inspectAtmosphere, track: sandbox.inspectTrack, scoreGraph: sandbox.inspectScoreGraph, arrangement: sandbox.inspectArrangement, scoreEvents: sandbox.scoreEvents, spark: sandbox.playSurgeSpark, trinary: sandbox.playTrinaryChime, binaryBurst: sandbox.playBinaryBurst,
     click: (kind, name) => element(`${kind}:${name}`).click(),
     advance(seconds) { const ctx = sandbox.inspectAudio().context; ctx.advance(seconds); for (const fn of [...intervals.values()]) fn(); } };
 }
@@ -393,22 +400,25 @@ test('lifeway switching and rapid repeated rest/start remain playable', async ()
 });
 
 
-test('stochastic tracks combine only selected modes and finish on the audio clock', async () => {
+test('stochastic tracks give one selected mode to each emergence and finish on the audio clock', async () => {
   const h = habitat();
-  for (const input of h.groups.get('[data-track-mode]')) input.checked = ['NOETIC_SURGE','PHASEWEAVE','AETHERFLUX'].includes(input.dataset.trackMode);
-  h.element('track-length').value = '126'; h.element('track-variation').value = '1';
+  const tempos = { NOETIC_SURGE:144, PHASEWEAVE:132, AETHERFLUX:92 };
+  for (const input of h.groups.get('[data-track-mode]')) input.checked = input.dataset.trackMode in tempos;
+  h.element('track-length').value = '126';
   h.element('generate-track').click(); await settle();
   const track = h.track();
   assert.equal(track.sections.length, 42);
   assert.equal(track.interval, 3);
   for (const [i, section] of track.sections.entries()) {
-    assert.equal(new Set([section.foundation, ...section.layers]).size, 3);
-    if (i) assert.notEqual(section.foundation, track.sections[i-1].foundation);
+    assert.ok(section.mode in tempos);
+    assert.equal(section.layers, undefined);
+    if (i) assert.notEqual(section.mode, track.sections[i-1].mode);
   }
-  const bpm = h.arrangement().bpm;
+  assert.equal(h.arrangement().bpm, tempos[track.sections[0].mode]);
   for (let tick=0; tick<31; tick++) h.advance(.1);
   assert.equal(h.track().section, 1);
-  assert.equal(h.arrangement().bpm, bpm); assert.equal(h.intervals.size, 1);
+  assert.equal(h.arrangement().bpm, tempos[track.sections[1].mode]);
+  assert.equal(h.intervals.size, 1);
   h.element('awaken').click(); await settle();
   const elapsed = h.arrangement().elapsed;
   h.advance(20); assert.equal(h.arrangement().elapsed, elapsed);
@@ -421,19 +431,89 @@ test('stochastic tracks combine only selected modes and finish on the audio cloc
   assert.equal(h.errors.length, 0);
 });
 
+test('composer emergences restart their beat and schedule only the selected mode', async () => {
+  const h = habitat({ scoreOnly:true });
+  for (const input of h.groups.get('[data-track-mode]')) input.checked = ['NOETIC_SURGE', 'POLYATTENTION'].includes(input.dataset.trackMode);
+  h.element('track-interval').value = '1.5';
+  h.element('generate-track').click(); await settle();
+  for (let tick = 0; tick < 121; tick++) h.advance(.05);
+  assert.equal(h.track().section, 4);
+  for (let index = 0; index < 4; index++) {
+    const events = h.scoreEvents.filter(event => event.section === index);
+    assert.ok(events.length > 0, 'Every emergence should schedule an audible score');
+    assert.equal(events[0].step, 0, 'Every mode should start on its first step');
+    if (h.track().sections[index].mode === 'POLYATTENTION') {
+      assert.ok(events.every(event => event.instrument === 'playCyberSample'), 'Polyattention must remain a sample-only emergence');
+    } else {
+      assert.ok(events.some(event => event.instrument === 'playSurgeSpark'));
+      assert.ok(events.some(event => event.instrument === 'playKick' && event.step === 0));
+      assert.ok(events.every(event => event.instrument !== 'playCyberSample'), 'Polyattention must not leak beneath Noetic Surge');
+    }
+  }
+  assert.equal(h.errors.length, 0);
+});
+
+test('composer boundaries gate old tails and disconnect its outgoing voices and delay paths', async () => {
+  const h = habitat({ trackAutomation:true });
+  for (const input of h.groups.get('[data-track-mode]')) input.checked = ['EXURSIVE_FLOW', 'POLYATTENTION'].includes(input.dataset.trackMode);
+  h.element('track-interval').value = '.5';
+  h.element('generate-track').click(); await settle();
+  const ctx = h.inspect().context;
+  const outgoing = h.track().sections.findIndex(section => section.mode === 'EXURSIVE_FLOW');
+  for (let tick = 0; tick < 27 && h.track().section < outgoing; tick++) h.advance(.02);
+  assert.equal(h.track().section, outgoing);
+  const boundary = (outgoing + 1) * h.track().interval;
+  h.advance(.02);
+  const oldGraph = h.scoreGraph();
+  assert.ok(oldGraph.gate.gain.automation.some(event => ['set', 'linearRamp'].includes(event.type) &&
+    event.value === 0 && Math.abs(event.time - boundary) < .0001),
+    'The score output must reach silence at the exact audio-time boundary');
+
+  function reachesOutput(node, seen = new Set()) {
+    if (node === ctx.destination) return true;
+    if (seen.has(node)) return false;
+    seen.add(node);
+    return node.connections?.some(target => reachesOutput(target, seen)) ?? false;
+  }
+
+  const oldVoices = ctx.nodes.filter(node => node.source && node.started && node.scheduledStopAt > boundary && reachesOutput(node));
+  assert.ok(oldVoices.length > 0, 'The outgoing Exursive slab must still have a tail to test');
+  for (let tick = 0; tick < 27 && h.track().section === outgoing; tick++) h.advance(.02);
+  assert.equal(h.track().section, outgoing + 1);
+  assert.equal(h.contexts.length, 1);
+  assert.equal(h.intervals.size, 1);
+  for (const source of oldVoices) {
+    assert.ok(source.stopAt <= ctx.currentTime);
+    assert.equal(source.connections.length, 0, 'Outgoing sources cannot stay connected through the switch');
+  }
+  for (const node of [oldGraph.gate, oldGraph.echo, oldGraph.delay]) {
+    assert.ok(!reachesOutput(node), 'Old delay and output paths cannot play into the next emergence');
+  }
+  const newGraph = h.scoreGraph();
+  assert.notEqual(newGraph.gate, oldGraph.gate);
+  assert.ok(reachesOutput(newGraph.gate), 'The incoming emergence needs an audible output path');
+  assert.ok(h.inspect().voiceCount > 0);
+  assert.equal(h.errors.length, 0);
+});
+
 test('composer validates the pool and manual selection exits a generated track', async () => {
   const h = habitat();
   for (const input of h.groups.get('[data-track-mode]')) input.checked = false;
   h.element('generate-track').click(); await settle();
   assert.equal(h.track(), null); assert.equal(h.contexts.length, 0);
-  assert.match(h.element('track-status').textContent, /at least two/);
-  for (const input of h.groups.get('[data-track-mode]')) input.checked = true;
+  assert.match(h.element('track-status').textContent, /choose|select/i);
+  h.click('lifeway', 'CHLOROPHYLL_MIND'); await settle();
+  assert.equal(h.scoreGraph().cognitive.gain.value, 1);
+  for (const input of h.groups.get('[data-track-mode]')) input.checked = input.dataset.trackMode === 'PHASEWEAVE';
   h.element('generate-track').click(); await settle();
   assert.ok(h.track());
+  assert.ok(h.track().sections.every(section => section.mode === 'PHASEWEAVE'));
+  assert.equal(h.scoreGraph().cognitive.gain.value, 0, 'Previous lifeway tones cannot run under a generated emergence');
   h.element('generate-track').click(); await settle();
   assert.equal(h.intervals.size, 1); assert.equal(h.contexts.length, 1);
   h.click('amplifier','VIRIDION'); await settle();
   assert.equal(h.track(), null); assert.equal(h.inspect().playing, true);
+  assert.equal(h.scoreGraph().cognitive.gain.value, 1, 'Manual playback regains its normal audio path');
 });
 
 
@@ -451,7 +531,7 @@ test('hyperdynamic interval controls transitions independently of tempo', async 
 });
 
 
-test('production grooves have distinct kick patterns and supporting modes never add a second bass lane', async () => {
+test('production grooves have distinct kick patterns and a composer emergence has one bass lane', async () => {
   const h = habitat({ scoreOnly:true });
   const signatures = new Set();
   for (const mode of ['EXURSIVE_FLOW','HYPERFOCUS_LENS','RTADAOLUAN','DIVERGENCE_ENGINE','PHASEWEAVE','AETHERFLUX','METAMORPHIC_PULSE','VIRIDION','HYPERASTRA','PRISM_BREAKS','VELVET_CIRCUIT','AXIOM_BLOOM']) {
@@ -736,14 +816,11 @@ test('Rtadaoluan chip recalls the binary-trinary biocyberdynamic and is availabl
 });
 
 
-test('Composer never doubles the saved Rtadaoluan and Hyperfocus sound in one section', async () => {
+test('composer selects the Rtadaoluan and Hyperfocus lens modes for separate emergences', async () => {
   const h = habitat();
-  for (const input of h.groups.get('[data-track-mode]')) input.checked = ['RTADAOLUAN','HYPERFOCUS_LENS','EXURSIVE_FLOW'].includes(input.dataset.trackMode);
+  for (const input of h.groups.get('[data-track-mode]')) input.checked = ['RTADAOLUAN','HYPERFOCUS_LENS'].includes(input.dataset.trackMode);
   h.element('generate-track').click(); await settle();
-  for (const section of h.track().sections) {
-    const modes = [section.foundation, ...section.layers];
-    assert.ok(modes.filter(mode => ['RTADAOLUAN','HYPERFOCUS_LENS'].includes(mode)).length <= 1);
-    assert.ok(modes.every(Boolean));
-  }
+  assert.deepEqual(new Set(Array.from(h.track().sections, section => section.mode)), new Set(['RTADAOLUAN', 'HYPERFOCUS_LENS']));
+  assert.ok(h.track().sections.every(section => section.layers === undefined));
   assert.equal(h.errors.length, 0);
 });
